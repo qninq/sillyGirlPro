@@ -392,6 +392,7 @@ func functionRulePattern(cmd *common.Function, index int) (*regexp.Regexp, error
 
 func AddCommand(cmds []*common.Function) {
 	for j := range cmds {
+		applyCommandAdminOverride(cmds[j])
 		if cmds[j].OnStart && pluginExecutionEnabled(cmds[j]) {
 			go func(f *common.Function) {
 				time.Sleep(time.Second)
@@ -544,7 +545,15 @@ func HandleMessage(sender common.Sender) {
 					sender.SetParams(c.Function.Params[i])
 					mtd = true
 					c.Chan <- sender
-					sender.Reply(<-c.Result)
+					// A listen handler that returns its reply() result hands back
+					// a platform message ID; echoing it as text confuses users,
+					// so well-known message ID shapes are swallowed here.
+					replyValue := <-c.Result
+					if str, ok := replyValue.(string); ok && officialMessageIDPattern.MatchString(str) {
+						logs.Info("忽略监听返回的消息ID回显：%s", str)
+					} else if replyValue != nil {
+						sender.Reply(replyValue)
+					}
 					if !sender.IsContinue() {
 						con = false
 						return false

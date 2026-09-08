@@ -22,6 +22,7 @@ func Init() {
 	// them through the legacy exact-string NoRoute dispatcher.
 	initWebPluginList()
 	initMarketPluginEditor()
+	initLogEndpoint()
 	initWeb()
 	initCarry()
 	sillyGirl.Set("started_at", time.Now().Format("2006-01-02 15:04:05"))

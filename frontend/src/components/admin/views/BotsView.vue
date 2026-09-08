@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from "vue";
 import Alert from "ant-design-vue/es/alert";
 import {
   Antenna,
@@ -24,6 +25,7 @@ import Switch from "ant-design-vue/es/switch";
 import Tag from "ant-design-vue/es/tag";
 import Typography from "ant-design-vue/es/typography";
 import message from "ant-design-vue/es/message";
+import QQguildOnboardModal from "../QQguildOnboardModal.vue";
 import { useAdminViewContext } from "../adminViewContext";
 
 const {
@@ -50,6 +52,17 @@ const {
   webChat,
   webChatEndpointURL,
 } = useAdminViewContext();
+
+const qqguildOnboardOpen = ref(false);
+
+function onQQguildOnboardConfirmed(payload: {
+  app_id: string;
+  client_secret: string;
+}) {
+  botSettings.form.qqguild_app_id = payload.app_id;
+  botSettings.form.qqguild_app_secret = payload.client_secret;
+  refreshBots();
+}
 </script>
 
 <template>
@@ -419,10 +432,37 @@ const {
             placeholder="请输入机器人 AppSecret"
           />
         </Form.Item>
+        <Form.Item label="扫码绑定" html-for="bot-qqguild-onboard">
+          <Button
+            id="bot-qqguild-onboard"
+            @click="qqguildOnboardOpen = true"
+          >
+            <template #icon><QrCode :size="16" /></template>
+            扫码添加机器人
+          </Button>
+        </Form.Item>
         <Form.Item label="沙箱环境" html-for="bot-qqguild-sandbox">
           <Switch
             id="bot-qqguild-sandbox"
             v-model:checked="botSettings.form.qqguild_sandbox"
+          />
+        </Form.Item>
+        <Form.Item label="公域机器人" html-for="bot-qqguild-public-bot" extra="开启后注册 MESSAGE_CREATE intent，接收频道全量消息；仅公域机器人可用。">
+          <Switch
+            id="bot-qqguild-public-bot"
+            v-model:checked="botSettings.form.qqguild_public_bot"
+          />
+        </Form.Item>
+        <Form.Item label="Markdown 消息" html-for="bot-qqguild-markdown" extra="群聊和私聊回复改用 Markdown 格式发送，失败时自动回退纯文本；需要机器人有 Markdown 权限。">
+          <Switch
+            id="bot-qqguild-markdown"
+            v-model:checked="botSettings.form.qqguild_markdown"
+          />
+        </Form.Item>
+        <Form.Item label="回复自动@" html-for="bot-qqguild-at" extra="群聊回复时自动@发送者；仅在 Markdown 消息开启时生效。">
+          <Switch
+            id="bot-qqguild-at"
+            v-model:checked="botSettings.form.qqguild_at"
           />
         </Form.Item>
         <Form.Item label="QQ 频道调试日志" html-for="bot-qqguild-debug">
@@ -561,6 +601,11 @@ const {
       </Form>
     </Spin>
   </Modal>
+
+  <QQguildOnboardModal
+    v-model:open="qqguildOnboardOpen"
+    @confirmed="onQQguildOnboardConfirmed"
+  />
 
   <Modal
     v-model:open="clawbotLogin.open"

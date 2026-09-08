@@ -175,6 +175,7 @@ func addNodePluginLocked(path, name, class string) error {
 	// plugins_id.Store(uuid, path)
 	// fmt.Println("add,", uuid, name)
 	f, cbs := pluginParse(script, uuid)
+	applyCommandAdminOverride(f)
 	f.Reload = func() { //重载
 		AddNodePlugin(path, name, class)
 	}

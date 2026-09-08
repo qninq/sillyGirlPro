@@ -307,6 +307,10 @@ type Switch []string
 
 var listenCounter int64
 
+// officialMessageIDPattern matches QQ official bot message IDs (ROBOT1.0_...)
+// so listen handler results that are reply receipts are not echoed as text.
+var officialMessageIDPattern = regexp.MustCompile(`^ROBOT1\.0_[A-Za-z0-9_\-!.:+/=]+`)
+
 func (s *CustomSender) Await(message common.Sender, callback func(common.Sender) interface{}, params ...interface{}) interface{} {
 	timeout := time.Hour * 999999
 	var handleErr func(error)

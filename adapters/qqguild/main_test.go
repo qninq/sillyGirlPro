@@ -24,6 +24,13 @@ type recordingAPI struct {
 	groupID   string
 	c2cUserID string
 	payload   *dto.MessageToCreate
+	transport []transportRecord
+}
+
+type transportRecord struct {
+	method string
+	url    string
+	body   interface{}
 }
 
 func (api *recordingAPI) PostMessage(_ context.Context, channelID string, msg *dto.MessageToCreate, _ ...options.Option) (*dto.Message, error) {
@@ -48,6 +55,27 @@ func (api *recordingAPI) PostC2CMessage(_ context.Context, userID string, msg dt
 	api.c2cUserID = userID
 	api.payload = msg.(*dto.MessageToCreate)
 	return &dto.Message{ID: "reply-c2c"}, nil
+}
+
+func (api *recordingAPI) RetractMessage(context.Context, string, string, ...options.Option) error {
+	return nil
+}
+
+func (api *recordingAPI) RetractDMMessage(context.Context, string, string, ...options.Option) error {
+	return nil
+}
+
+func (api *recordingAPI) RetractGroupMessage(context.Context, string, string, ...options.Option) error {
+	return nil
+}
+
+func (api *recordingAPI) RetractC2CMessage(context.Context, string, string, ...options.Option) error {
+	return nil
+}
+
+func (api *recordingAPI) Transport(_ context.Context, method, url string, body interface{}) ([]byte, error) {
+	api.transport = append(api.transport, transportRecord{method: method, url: url, body: body})
+	return []byte(`{"id":"richmedia-1","file_info":"file-info-1"}`), nil
 }
 
 func TestChannelReplyUsesChannelAndSourceMessage(t *testing.T) {
@@ -111,10 +139,73 @@ func TestC2CReplyUsesOfficialUserAPI(t *testing.T) {
 	}
 }
 
+func TestLearnedGroupSceneRoutesProactivePushToGroupAPI(t *testing.T) {
+	api := &recordingAPI{}
+	b := &bot{api: api}
+	b.rememberChatScene("group-openid-learned", sceneGroup)
+	got := b.reply(context.Background(), map[string]interface{}{
+		"content": "forwarded",
+		"chat_id": "group-openid-learned",
+	})
+	if got != "reply-group" || api.groupID != "group-openid-learned" {
+		t.Fatalf("push id=%q group=%q", got, api.groupID)
+	}
+	if api.payload.MsgID != "" {
+		t.Fatalf("proactive push should not carry MsgID, got %q", api.payload.MsgID)
+	}
+}
+
+func TestExplicitChatTypeRoutesPushWithoutLearnedScene(t *testing.T) {
+	api := &recordingAPI{}
+	b := &bot{api: api}
+	got := b.reply(context.Background(), map[string]interface{}{
+		"content":   "forwarded",
+		"chat_id":   "group-openid-cold",
+		"chat_type": "group",
+	})
+	if got != "reply-group" || api.groupID != "group-openid-cold" {
+		t.Fatalf("push id=%q group=%q", got, api.groupID)
+	}
+	got = b.reply(context.Background(), map[string]interface{}{
+		"content":   "forwarded",
+		"user_id":   "c2c-openid-cold",
+		"chat_type": "private",
+	})
+	if got != "reply-c2c" || api.c2cUserID != "c2c-openid-cold" {
+		t.Fatalf("push id=%q user=%q", got, api.c2cUserID)
+	}
+}
+
+func TestLearnedC2CSceneRoutesProactivePushToC2CAPI(t *testing.T) {
+	api := &recordingAPI{}
+	b := &bot{api: api}
+	b.rememberChatScene("c2c-openid-learned", sceneC2C)
+	got := b.reply(context.Background(), map[string]interface{}{
+		"content": "forwarded",
+		"chat_id": "c2c-openid-learned",
+	})
+	if got != "reply-c2c" || api.c2cUserID != "c2c-openid-learned" {
+		t.Fatalf("push id=%q user=%q", got, api.c2cUserID)
+	}
+}
+
+func TestUnknownChatIDPushStillUsesChannelAPI(t *testing.T) {
+	api := &recordingAPI{}
+	b := &bot{api: api}
+	got := b.reply(context.Background(), map[string]interface{}{
+		"content": "forwarded",
+		"chat_id": "unknown-target",
+	})
+	if got != "reply-channel" || api.channelID != "unknown-target" {
+		t.Fatalf("push id=%q channel=%q", got, api.channelID)
+	}
+}
+
 func TestWebsocketIntentsIncludeOfficialQQMessages(t *testing.T) {
-	t.Logf("websocket intents=%d group_messages_bit=%d", websocketIntents, dto.IntentGroupMessages)
-	if websocketIntents&dto.IntentGroupMessages == 0 {
-		t.Fatalf("websocket intents %d omit GROUP_AT/C2C messages", websocketIntents)
+	intents := buildQQGuildHandlers()
+	t.Logf("websocket intents=%d group_messages_bit=%d", intents, dto.IntentGroupMessages)
+	if intents&dto.IntentGroupMessages == 0 {
+		t.Fatalf("websocket intents %d omit GROUP_AT/C2C messages", intents)
 	}
 }
 
@@ -334,6 +425,116 @@ func TestCacheCleanupDeletesExpiredEntries(t *testing.T) {
 	}
 	if _, ok := b.replySeq.Load("active-message"); !ok {
 		t.Fatal("active reply counter was deleted")
+	}
+}
+
+func TestGroupRichMediaReplyUploadsThenSends(t *testing.T) {
+	api := &recordingAPI{}
+	b := &bot{api: api}
+	got := b.reply(context.Background(), map[string]interface{}{
+		"content":          "看图[CQ:image,url=https://example.com/a.png]",
+		"message_id":       "source-media",
+		"qqguild_group_id": "group-9",
+		"qqguild_scene":    sceneGroup,
+	})
+	if got != "richmedia-1" {
+		t.Fatalf("richmedia reply id = %q", got)
+	}
+	if len(api.transport) != 2 {
+		t.Fatalf("transport calls = %d, want upload + send", len(api.transport))
+	}
+	upload := api.transport[0]
+	if upload.method != http.MethodPost || upload.url != "https://api.sgroup.qq.com/v2/groups/group-9/files" {
+		t.Fatalf("upload call = %+v", upload)
+	}
+	uploadBody := upload.body.(map[string]interface{})
+	if uploadBody["file_type"] != uint64(1) || uploadBody["url"] != "https://example.com/a.png" || uploadBody["srv_send_msg"] != false {
+		t.Fatalf("upload body = %+v", uploadBody)
+	}
+	send := api.transport[1]
+	if send.url != "https://api.sgroup.qq.com/v2/groups/group-9/messages" {
+		t.Fatalf("send call = %+v", send)
+	}
+	sendBody := send.body.(map[string]interface{})
+	if sendBody["msg_type"] != dto.RichMediaMsg || sendBody["msg_id"] != "source-media" {
+		t.Fatalf("send body = %+v", sendBody)
+	}
+	media := sendBody["media"].(map[string]string)
+	if media["file_info"] != "file-info-1" {
+		t.Fatalf("media = %+v", media)
+	}
+	if sendBody["content"] != "看图" {
+		t.Fatalf("content = %v", sendBody["content"])
+	}
+}
+
+func TestParseReplySegmentsDropsLocalMedia(t *testing.T) {
+	segments := parseReplySegments("前文[CQ:image,file=/tmp/local.png]后文")
+	media := mediaSegments(segments)
+	if len(media) != 0 {
+		t.Fatalf("local media should be dropped, got %+v", media)
+	}
+	if text := joinReplyText(segments); text != "前文\n后文" {
+		t.Fatalf("text = %q", text)
+	}
+}
+
+func TestRichMediaRecallUsesSceneContext(t *testing.T) {
+	api := &recordingAPI{}
+	b := &bot{api: api}
+	b.msgCtx.Store("msg-1", msgContext{
+		scene:     sceneGroup,
+		target:    "group-7",
+		expiresAt: time.Now().Add(time.Minute).UnixMilli(),
+	})
+	b.handleAction(context.Background(), map[string]interface{}{
+		"type":       "delete_message",
+		"message_id": "msg-1",
+	})
+	if len(api.transport) != 0 {
+		t.Fatalf("recall should use retract API, transport = %+v", api.transport)
+	}
+	if _, ok := b.msgCtx.Load("msg-1"); ok {
+		t.Fatal("recalled message context remained cached")
+	}
+}
+
+func TestBoundedBackoffCapsAtMaximum(t *testing.T) {
+	if got := boundedBackoff(wsBackoffMin, wsBackoffMax, 1); got != wsBackoffMin {
+		t.Fatalf("first backoff = %v", got)
+	}
+	if got := boundedBackoff(wsBackoffMin, wsBackoffMax, 40); got != wsBackoffMax {
+		t.Fatalf("capped backoff = %v", got)
+	}
+	if got := nextRetryAttempt(3, true); got != 1 {
+		t.Fatalf("reset after connect = %d", got)
+	}
+}
+
+func TestMarkMessageSeenDeduplicatesWithinWindow(t *testing.T) {
+	b := &bot{}
+	if !b.markMessageSeen("msg-1") {
+		t.Fatal("first sight of a message should pass")
+	}
+	if b.markMessageSeen("msg-1") {
+		t.Fatal("duplicate within the window should be dropped")
+	}
+	b.seen.Store("msg-2", time.Now().Add(-time.Second).UnixMilli())
+	if !b.markMessageSeen("msg-2") {
+		t.Fatal("expired entry should pass")
+	}
+}
+
+func TestDeleteExpiredCachesRemovesSeenEntries(t *testing.T) {
+	b := &bot{}
+	b.seen.Store("expired", time.Now().Add(-time.Second).UnixMilli())
+	b.seen.Store("active", time.Now().Add(time.Minute).UnixMilli())
+	b.deleteExpiredCaches(time.Now())
+	if _, ok := b.seen.Load("expired"); ok {
+		t.Fatal("expired seen entry remained cached")
+	}
+	if _, ok := b.seen.Load("active"); !ok {
+		t.Fatal("active seen entry was deleted")
 	}
 }
 

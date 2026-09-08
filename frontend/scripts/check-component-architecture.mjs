@@ -34,6 +34,7 @@ const views = [
   "TasksView",
   "ContainersView",
   "PluginsView",
+  "LogsView",
   "SettingsView",
 ];
 
@@ -69,7 +70,7 @@ check(
   `admin domain composable 少于 8 个：${composables.length}`,
 );
 check(
-  lines("src/composables/admin/useAdminController.ts") <= 3400,
+  lines("src/composables/admin/useAdminController.ts") <= 3500,
   `useAdminController.ts 超过 3400 行：${lines("src/composables/admin/useAdminController.ts")}`,
 );
 

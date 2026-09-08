@@ -431,7 +431,13 @@ func CheckAuth(token string) (*Auth, error) {
 }
 
 func authTokenFromRequest(c *gin.Context) string {
-	return strings.TrimSpace(c.GetHeader("token"))
+	token := strings.TrimSpace(c.GetHeader("token"))
+	if token == "" {
+		// Fallback for EventSource/SSO-style clients that cannot set custom
+		// headers (e.g. the admin SSE log stream).
+		token = strings.TrimSpace(c.Query("token"))
+	}
+	return token
 }
 
 // CheckAuthRequest validates an administrator JWT from the token request
