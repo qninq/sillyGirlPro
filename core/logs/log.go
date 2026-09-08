@@ -15,7 +15,7 @@
 // Package logs provide a general log interface
 // Usage:
 //
-// import "github.com/smallfawn/sillyGirl/core/logs"
+// import "github.com/qninq/sillyGirlPro/core/logs"
 //
 //	log := NewLogger(10000)
 //	log.SetLogger("console", "")

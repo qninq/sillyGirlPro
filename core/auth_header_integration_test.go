@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/smallfawn/sillyGirl/utils"
+	"github.com/qninq/sillyGirlPro/utils"
 )
 
 func responseJWT(t *testing.T, response *httptest.ResponseRecorder) string {

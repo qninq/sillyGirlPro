@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/smallfawn/sillyGirl/utils"
+	"github.com/qninq/sillyGirlPro/utils"
 )
 
 var nodeRuntimePreloadCache sync.Map

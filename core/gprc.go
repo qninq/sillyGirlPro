@@ -10,8 +10,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/smallfawn/sillyGirl/proto3/srpc"
-	"github.com/smallfawn/sillyGirl/utils"
+	"github.com/qninq/sillyGirlPro/proto3/srpc"
+	"github.com/qninq/sillyGirlPro/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"

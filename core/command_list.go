@@ -10,8 +10,8 @@ import (
 	"sync"
 
 	"github.com/gin-gonic/gin"
-	"github.com/smallfawn/sillyGirl/core/common"
-	"github.com/smallfawn/sillyGirl/core/storage"
+	"github.com/qninq/sillyGirlPro/core/common"
+	"github.com/qninq/sillyGirlPro/core/storage"
 )
 
 // commandAdminBucket persists per-command admin overrides so that the

@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/boltdb/bolt"
-	"github.com/smallfawn/sillyGirl/core/logs"
-	"github.com/smallfawn/sillyGirl/core/storage"
+	"github.com/qninq/sillyGirlPro/core/logs"
+	"github.com/qninq/sillyGirlPro/core/storage"
 
-	"github.com/smallfawn/sillyGirl/utils"
+	"github.com/qninq/sillyGirlPro/utils"
 )
 
 type Bucket struct {

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/smallfawn/sillyGirl/core"
+	"github.com/qninq/sillyGirlPro/core"
 )
 
 func TestWebUserEnqueueKeepsNewestWithoutBlocking(t *testing.T) {

@@ -15,9 +15,9 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/google/uuid"
 	cron "github.com/robfig/cron/v3"
-	"github.com/smallfawn/sillyGirl/core/common"
-	"github.com/smallfawn/sillyGirl/core/storage"
-	"github.com/smallfawn/sillyGirl/utils"
+	"github.com/qninq/sillyGirlPro/core/common"
+	"github.com/qninq/sillyGirlPro/core/storage"
+	"github.com/qninq/sillyGirlPro/utils"
 )
 
 func init() {

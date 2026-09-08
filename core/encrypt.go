@@ -13,7 +13,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/smallfawn/sillyGirl/core/logs"
+	"github.com/qninq/sillyGirlPro/core/logs"
 )
 
 // legacyAesKey 是历史上硬编码在源码中的 AES 密钥，已随源码公开。

@@ -18,9 +18,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/smallfawn/sillyGirl/core/common"
-	proto3assets "github.com/smallfawn/sillyGirl/proto3"
-	"github.com/smallfawn/sillyGirl/utils"
+	"github.com/qninq/sillyGirlPro/core/common"
+	proto3assets "github.com/qninq/sillyGirlPro/proto3"
+	"github.com/qninq/sillyGirlPro/utils"
 )
 
 type nodeDependencyPlugin struct {

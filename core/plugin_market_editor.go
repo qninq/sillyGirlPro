@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/smallfawn/sillyGirl/core/common"
+	"github.com/qninq/sillyGirlPro/core/common"
 )
 
 type marketPluginScriptRequest struct {

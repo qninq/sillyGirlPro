@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smallfawn/sillyGirl/utils"
+	"github.com/qninq/sillyGirlPro/utils"
 )
 
 func removeCachedAdminSessionForTest(token string) {

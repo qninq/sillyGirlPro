@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/smallfawn/sillyGirl/core/common"
+	"github.com/qninq/sillyGirlPro/core/common"
 )
 
 type openPluginRecord struct {

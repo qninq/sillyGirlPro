@@ -1490,7 +1490,7 @@ def _release_download_urls(address):
 
 
 def _fetch_release_metadata(options, timeout):
-    repo = str(options.get("releaseRepo") or os.environ.get("SILLYGIRL_RELEASE_REPO") or "smallfawn/sillyGirl").strip()
+    repo = str(options.get("releaseRepo") or os.environ.get("SILLYGIRL_RELEASE_REPO") or "qninq/sillyGirlPro").strip()
     tag = str(options.get("releaseTag") or "").strip()
     api_path = f"releases/tags/{urllib.parse.quote(tag, safe='')}" if tag else "releases/latest"
     url = f"https://api.github.com/repos/{repo}/{api_path}"

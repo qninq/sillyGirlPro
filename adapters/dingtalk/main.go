@@ -13,9 +13,9 @@ import (
 
 	"github.com/open-dingtalk/dingtalk-stream-sdk-go/chatbot"
 	"github.com/open-dingtalk/dingtalk-stream-sdk-go/client"
-	"github.com/smallfawn/sillyGirl/core"
-	"github.com/smallfawn/sillyGirl/core/storage"
-	"github.com/smallfawn/sillyGirl/utils"
+	"github.com/qninq/sillyGirlPro/core"
+	"github.com/qninq/sillyGirlPro/core/storage"
+	"github.com/qninq/sillyGirlPro/utils"
 )
 
 const (

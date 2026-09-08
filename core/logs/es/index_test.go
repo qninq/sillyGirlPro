@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smallfawn/sillyGirl/core/logs"
+	"github.com/qninq/sillyGirlPro/core/logs"
 	"github.com/stretchr/testify/assert"
 )
 

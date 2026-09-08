@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	proto3assets "github.com/smallfawn/sillyGirl/proto3"
+	proto3assets "github.com/qninq/sillyGirlPro/proto3"
 )
 
 func TestCreateNodeScriptRejectsMalformedJSON(t *testing.T) {

@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/smallfawn/sillyGirl/core/storage"
-	"github.com/smallfawn/sillyGirl/utils"
+	"github.com/qninq/sillyGirlPro/core/storage"
+	"github.com/qninq/sillyGirlPro/utils"
 	"golang.org/x/crypto/bcrypt"
 )
 

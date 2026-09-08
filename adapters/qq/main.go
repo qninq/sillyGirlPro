@@ -13,10 +13,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
-	"github.com/smallfawn/sillyGirl/core"
-	"github.com/smallfawn/sillyGirl/core/logs"
-	"github.com/smallfawn/sillyGirl/core/storage"
-	"github.com/smallfawn/sillyGirl/utils"
+	"github.com/qninq/sillyGirlPro/core"
+	"github.com/qninq/sillyGirlPro/core/logs"
+	"github.com/qninq/sillyGirlPro/core/storage"
+	"github.com/qninq/sillyGirlPro/utils"
 )
 
 var qq = core.MakeBucket("qq")

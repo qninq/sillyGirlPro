@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/smallfawn/sillyGirl/core/logs"
-	"github.com/smallfawn/sillyGirl/proto3/srpc"
-	"github.com/smallfawn/sillyGirl/utils"
+	"github.com/qninq/sillyGirlPro/core/logs"
+	"github.com/qninq/sillyGirlPro/proto3/srpc"
+	"github.com/qninq/sillyGirlPro/utils"
 )
 
 func GetScriptNameByUUID(uuid string) string {

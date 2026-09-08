@@ -19,5 +19,5 @@
 ## 项目导航
 
 - [版本记录](CHANGELOG.md)
-- [Releases](https://github.com/smallfawn/sillyGirl/releases)
-- [源代码](https://github.com/smallfawn/sillyGirl)
+- [Releases](https://github.com/qninq/sillyGirlPro/releases)
+- [源代码](https://github.com/qninq/sillyGirlPro)

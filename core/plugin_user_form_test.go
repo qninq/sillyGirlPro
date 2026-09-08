@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smallfawn/sillyGirl/core/common"
+	"github.com/qninq/sillyGirlPro/core/common"
 )
 
 func TestRegisterNodePluginAndUserForms(t *testing.T) {

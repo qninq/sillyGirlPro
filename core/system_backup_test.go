@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smallfawn/sillyGirl/core/storage"
+	"github.com/qninq/sillyGirlPro/core/storage"
 )
 
 type backupTestStore struct {

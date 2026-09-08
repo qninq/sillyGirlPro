@@ -9,19 +9,19 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/smallfawn/sillyGirl/adapters/clawbot"
-	_ "github.com/smallfawn/sillyGirl/adapters/dingtalk"
-	_ "github.com/smallfawn/sillyGirl/adapters/flowbot"
-	_ "github.com/smallfawn/sillyGirl/adapters/pagermaid"
-	_ "github.com/smallfawn/sillyGirl/adapters/qq"
-	_ "github.com/smallfawn/sillyGirl/adapters/qqguild"
-	_ "github.com/smallfawn/sillyGirl/adapters/telegram"
-	"github.com/smallfawn/sillyGirl/adapters/web"
-	"github.com/smallfawn/sillyGirl/core"
-	"github.com/smallfawn/sillyGirl/core/common"
-	storagemigrate "github.com/smallfawn/sillyGirl/internal/storage_migrate"
+	_ "github.com/qninq/sillyGirlPro/adapters/clawbot"
+	_ "github.com/qninq/sillyGirlPro/adapters/dingtalk"
+	_ "github.com/qninq/sillyGirlPro/adapters/flowbot"
+	_ "github.com/qninq/sillyGirlPro/adapters/pagermaid"
+	_ "github.com/qninq/sillyGirlPro/adapters/qq"
+	_ "github.com/qninq/sillyGirlPro/adapters/qqguild"
+	_ "github.com/qninq/sillyGirlPro/adapters/telegram"
+	"github.com/qninq/sillyGirlPro/adapters/web"
+	"github.com/qninq/sillyGirlPro/core"
+	"github.com/qninq/sillyGirlPro/core/common"
+	storagemigrate "github.com/qninq/sillyGirlPro/internal/storage_migrate"
 
-	"github.com/smallfawn/sillyGirl/utils"
+	"github.com/qninq/sillyGirlPro/utils"
 )
 
 var app = core.MakeBucket("app")

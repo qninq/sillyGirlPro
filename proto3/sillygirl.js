@@ -1541,7 +1541,7 @@ async function updateRelease(options, timeout) {
     }
 }
 async function fetchReleaseMetadata(options, timeout) {
-    const repo = String(options.releaseRepo || process.env?.SILLYGIRL_RELEASE_REPO || "smallfawn/sillyGirl").trim();
+    const repo = String(options.releaseRepo || process.env?.SILLYGIRL_RELEASE_REPO || "qninq/sillyGirlPro").trim();
     const tag = String(options.releaseTag || "").trim();
     const apiPath = tag ? `releases/tags/${encodeURIComponent(tag)}` : "releases/latest";
     const address = `https://api.github.com/repos/${repo}/${apiPath}`;

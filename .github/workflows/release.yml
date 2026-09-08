@@ -68,7 +68,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist build
-          ldflags="-s -w -X github.com/smallfawn/sillyGirl/core.compiled_at=${VERSION}"
+          ldflags="-s -w -X github.com/qninq/sillyGirlPro/core.compiled_at=${VERSION}"
 
           targets=(
             "linux amd64"
@@ -156,7 +156,7 @@ jobs:
             version="dev-${GITHUB_SHA::7}"
             publish_latest="false"
           fi
-          dockerhub_image="docker.io/smallfawn/sillygirl"
+          dockerhub_image="docker.io/qninq/sillygirl"
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
           echo "dockerhub_image=${dockerhub_image}" >> "${GITHUB_OUTPUT}"
           {

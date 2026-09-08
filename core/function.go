@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"github.com/goccy/go-json"
-	"github.com/smallfawn/sillyGirl/core/common"
-	"github.com/smallfawn/sillyGirl/core/logs"
-	"github.com/smallfawn/sillyGirl/core/storage"
-	"github.com/smallfawn/sillyGirl/utils"
+	"github.com/qninq/sillyGirlPro/core/common"
+	"github.com/qninq/sillyGirlPro/core/logs"
+	"github.com/qninq/sillyGirlPro/core/storage"
+	"github.com/qninq/sillyGirlPro/utils"
 )
 
 var total uint64 = 0

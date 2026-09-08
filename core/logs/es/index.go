@@ -17,7 +17,7 @@ package es
 import (
 	"fmt"
 
-	"github.com/smallfawn/sillyGirl/core/logs"
+	"github.com/qninq/sillyGirlPro/core/logs"
 )
 
 // IndexNaming generate the index name

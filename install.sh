@@ -1,7 +1,7 @@
 n="sillyGirl"
 s="/usr/local/$n"
 a=arm64
-repo="smallfawn/sillyGirl"
+repo="qninq/sillyGirlPro"
 proxy="${GITHUB_PROXY:-https://gh-proxy.org}"
 if [[ $(uname -a | grep "x86_64") != "" ]]; then 
     a=amd64

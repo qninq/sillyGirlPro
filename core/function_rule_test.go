@@ -3,7 +3,7 @@ package core
 import (
 	"testing"
 
-	"github.com/smallfawn/sillyGirl/core/common"
+	"github.com/qninq/sillyGirlPro/core/common"
 )
 
 func TestFmtRuleCompilesRulesOnceAndKeepsParamsAligned(t *testing.T) {

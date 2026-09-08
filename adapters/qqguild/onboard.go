@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/smallfawn/sillyGirl/core"
+	"github.com/qninq/sillyGirlPro/core"
 )
 
 // QR onboarding drives the official q.qq.com bind service: a random client

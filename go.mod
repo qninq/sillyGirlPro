@@ -1,4 +1,4 @@
-module github.com/smallfawn/sillyGirl
+module github.com/qninq/sillyGirlPro
 
 go 1.26.5
 

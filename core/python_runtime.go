@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	proto3assets "github.com/smallfawn/sillyGirl/proto3"
-	"github.com/smallfawn/sillyGirl/utils"
+	proto3assets "github.com/qninq/sillyGirlPro/proto3"
+	"github.com/qninq/sillyGirlPro/utils"
 )
 
 const pythonMinimumVersion = "3.12"

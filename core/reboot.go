@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smallfawn/sillyGirl/utils"
+	"github.com/qninq/sillyGirlPro/utils"
 )
 
 func initReboot() {

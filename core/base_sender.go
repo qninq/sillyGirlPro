@@ -9,8 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/smallfawn/sillyGirl/core/common"
-	"github.com/smallfawn/sillyGirl/utils"
+	"github.com/qninq/sillyGirlPro/core/common"
+	"github.com/qninq/sillyGirlPro/utils"
 )
 
 type BaseSender struct {

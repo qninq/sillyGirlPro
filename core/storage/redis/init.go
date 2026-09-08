@@ -13,9 +13,9 @@ import (
 
 	"github.com/beego/beego/v2/client/httplib"
 	"github.com/buger/jsonparser"
-	"github.com/smallfawn/sillyGirl/core/logs"
-	"github.com/smallfawn/sillyGirl/core/storage"
-	"github.com/smallfawn/sillyGirl/utils"
+	"github.com/qninq/sillyGirlPro/core/logs"
+	"github.com/qninq/sillyGirlPro/core/storage"
+	"github.com/qninq/sillyGirlPro/utils"
 
 	"github.com/go-redis/redis/v8"
 )

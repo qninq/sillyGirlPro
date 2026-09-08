@@ -16,9 +16,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/smallfawn/sillyGirl/core"
-	"github.com/smallfawn/sillyGirl/core/storage"
-	"github.com/smallfawn/sillyGirl/utils"
+	"github.com/qninq/sillyGirlPro/core"
+	"github.com/qninq/sillyGirlPro/core/storage"
+	"github.com/qninq/sillyGirlPro/utils"
 	"github.com/tencent-connect/botgo"
 	"github.com/tencent-connect/botgo/dto"
 	qqmessage "github.com/tencent-connect/botgo/dto/message"

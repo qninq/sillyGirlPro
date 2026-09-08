@@ -5,8 +5,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 
-	"github.com/smallfawn/sillyGirl/core/storage"
-	"github.com/smallfawn/sillyGirl/utils"
+	"github.com/qninq/sillyGirlPro/core/storage"
+	"github.com/qninq/sillyGirlPro/utils"
 )
 
 func protect(appID, id string) string {

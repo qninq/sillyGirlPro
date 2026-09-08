@@ -330,7 +330,7 @@ export function useAdminController() {
       local: info.local || "1.1.6",
       remote: info.remote || info.local || "1.1.6",
       source: info.source || "reserved",
-      repository: info.repository || "https://github.com/smallfawn/sillyGirl",
+      repository: info.repository || "https://github.com/qninq/sillyGirlPro",
     };
   });
   const overviewUserStats = computed(() => ({

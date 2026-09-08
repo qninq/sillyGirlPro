@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/smallfawn/sillyGirl/core"
+	"github.com/qninq/sillyGirlPro/core"
 )
 
 type WebMessage struct {

@@ -20,14 +20,14 @@ import (
 	"unicode"
 
 	"github.com/gin-gonic/gin"
-	"github.com/smallfawn/sillyGirl/core/common"
-	"github.com/smallfawn/sillyGirl/utils"
+	"github.com/qninq/sillyGirlPro/core/common"
+	"github.com/qninq/sillyGirlPro/utils"
 )
 
 const pluginSourceReposKey = "plugin_source_repos"
 const pluginSourceGithubProxyKey = "plugin_source_github_proxy"
 const pluginSourceGithubProxyOptionsKey = "plugin_source_github_proxy_options"
-const defaultPluginSourceRepo = "https://github.com/smallfawn/sillyGirl_Plugins"
+const defaultPluginSourceRepo = "https://github.com/qninq/sillyGirlPro_Plugins"
 const githubNodePluginScheme = "github-node"
 
 var builtinGithubAccelerators = []string{

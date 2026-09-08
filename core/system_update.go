@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/smallfawn/sillyGirl/utils"
+	"github.com/qninq/sillyGirlPro/utils"
 )
 
 const (
@@ -244,7 +244,7 @@ func updateFromRelease(progress func(int, string)) (*systemUpdateResult, error) 
 }
 
 func fetchLatestRelease() (*releasePayload, error) {
-	address := "https://api.github.com/repos/smallfawn/sillyGirl/releases/latest"
+	address := "https://api.github.com/repos/qninq/sillyGirlPro/releases/latest"
 	var lastErr error
 	for _, url := range releaseURLs(address) {
 		req, err := http.NewRequest(http.MethodGet, url, nil)

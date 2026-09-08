@@ -9,11 +9,11 @@ import (
 	"sync"
 
 	"github.com/goccy/go-json"
-	"github.com/smallfawn/sillyGirl/core/logs"
-	"github.com/smallfawn/sillyGirl/core/storage"
-	"github.com/smallfawn/sillyGirl/core/storage/boltdb"
-	"github.com/smallfawn/sillyGirl/core/storage/redis"
-	"github.com/smallfawn/sillyGirl/utils"
+	"github.com/qninq/sillyGirlPro/core/logs"
+	"github.com/qninq/sillyGirlPro/core/storage"
+	"github.com/qninq/sillyGirlPro/core/storage/boltdb"
+	"github.com/qninq/sillyGirlPro/core/storage/redis"
+	"github.com/qninq/sillyGirlPro/utils"
 )
 
 var bkt storage.Bucket

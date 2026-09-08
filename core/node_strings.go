@@ -12,8 +12,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/smallfawn/sillyGirl/emoji"
-	"github.com/smallfawn/sillyGirl/utils"
+	"github.com/qninq/sillyGirlPro/emoji"
+	"github.com/qninq/sillyGirlPro/utils"
 )
 
 var mystr = &Strings{}
