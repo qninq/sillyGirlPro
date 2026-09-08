@@ -1,4 +1,15 @@
-# 更新日志
+## v1.2.2 - 2026-09-09
+
+### 项目迁移
+
+- 仓库迁移至 [qninq/sillyGirlPro](https://github.com/qninq/sillyGirlPro)：Go module 路径、版本检查、自更新下载源、一键安装脚本、CI 构建与 Docker Hub 镜像名同步更新。
+- 修复 `go run` 或未注入构建信息的二进制版本号显示为 1.1.9 的问题：`core/version.go` 兜底常量与 `core/compile_time.go` 默认值随版本同步。
+- 前端开源地址、默认仓库地址与前端版本号同步更新。
+
+### 文档
+
+- README 新增快速开始（源码构建 / 一键安装 / Docker / 管理后台入口），修正 Go 版本要求为 1.26+。
+- 镜像地址与示例统一指向 `qninq/sillygirl`。
 
 ## v1.2.1 - 2026-09-08
 
