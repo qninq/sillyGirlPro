@@ -34,7 +34,6 @@ const {
   openReply,
   optionMap,
   page,
-  recordOptions,
   removeCarry,
   removeMessageRow,
   removeReply,
@@ -42,7 +41,9 @@ const {
   saveCarry,
   saveMessageRow,
   saveReply,
-  scripts,
+  toggleCarry,
+  toggleMessageRow,
+  toggleReply,
 } = useAdminViewContext();
 </script>
 
@@ -75,6 +76,29 @@ const {
       <Table.Column title="平台" data-index="platform" :width="100" />
       <Table.Column title="群号" data-index="chat_id" :width="160" />
       <Table.Column title="备注" data-index="remark" />
+      <Table.Column title="转发目标" :width="240"
+        ><template #default="{ record }"
+          ><span v-if="(record.targets || []).length">{{
+            record.targets
+              .map(
+                (item: any) =>
+                  `${item.platform}:${
+                    item.type === "private" ? "私聊:" : ""
+                  }${item.chat_id}`,
+              )
+              .join("、")
+          }}</span
+          ><span v-else class="muted">—</span></template
+        ></Table.Column
+      >
+      <Table.Column title="启用" :width="90"
+        ><template #default="{ record }"
+          ><Switch
+            :checked="record.enable !== false"
+            :aria-label="`启用转发群组 ${record.chat_id}`"
+            @change="(checked: any) => toggleCarry(record, !!checked)"
+        /></template></Table.Column
+      >
       <Table.Column title="操作" :width="150"
         ><template #default="{ record }"
           ><Button type="text" @click="openCarry(record)">编辑</Button
@@ -103,6 +127,14 @@ const {
       <Table.Column title="回复内容" data-index="value" ellipsis />
       <Table.Column title="对象" data-index="number" :width="140" />
       <Table.Column title="优先级" data-index="priority" :width="90" />
+      <Table.Column title="启用" :width="90"
+        ><template #default="{ record }"
+          ><Switch
+            :checked="record.enable !== false"
+            :aria-label="`启用回复 ${record.keyword}`"
+            @change="(checked: any) => toggleReply(record, !!checked)"
+        /></template></Table.Column
+      >
       <Table.Column title="创建时间" data-index="created_at" :width="180">
         <template #default="{ text }">{{ timestamp(text) }}</template>
       </Table.Column>
@@ -140,9 +172,12 @@ const {
         <Table.Column title="平台" data-index="platform" :width="140" />
         <Table.Column title="说明" data-index="desc" />
         <Table.Column title="启用" data-index="enable" :width="90"
-          ><template #default="{ text }">{{
-            text ? "是" : "否"
-          }}</template></Table.Column
+          ><template #default="{ record }"
+            ><Switch
+              :checked="record.enable !== false"
+              :aria-label="`启用消息规则 ${record.key}`"
+              @change="(checked: any) => toggleMessageRow(record, !!checked)"
+          /></template></Table.Column
         >
         <Table.Column title="操作" :width="150"
           ><template #default="{ record }"
@@ -211,11 +246,12 @@ const {
           @change="changeCarryPlatform"
         />
       </Form.Item>
-      <Form.Item label="群号" html-for="carry-chat-id" required>
+      <Form.Item label="群号 / 会话 ID" html-for="carry-chat-id" required>
         <Input
           id="carry-chat-id"
           name="carry-chat-id"
           v-model:value="carry.form.chat_id"
+          placeholder="群聊填群号；Web 会话填 rid，C2C 私聊填用户 openid"
         />
       </Form.Item>
       <Form.Item label="备注" html-for="carry-remark">
@@ -234,13 +270,54 @@ const {
           :options="optionMap(carry.selects.bots_id)"
         />
       </Form.Item>
-      <Form.Item label="处理脚本" html-for="carry-scripts">
-        <Select
-          id="carry-scripts"
-          v-model:value="carry.form.scripts"
-          mode="multiple"
-          :options="recordOptions(carry.selects.scripts)"
-        />
+      <Form.Item label="转发目标" html-for="carry-targets">
+        <div
+          v-for="(target, index) in carry.form.targets"
+          :key="index"
+          class="carry-target-row"
+        >
+          <Select
+            :id="`carry-target-type-${index}`"
+            v-model:value="target.type"
+            placeholder="类型"
+            style="width: 96px"
+            :options="[
+              { label: '群聊', value: 'group' },
+              { label: '私聊', value: 'private' },
+            ]"
+          />
+          <Select
+            :id="`carry-target-platform-${index}`"
+            v-model:value="target.platform"
+            placeholder="平台"
+            style="width: 150px"
+            :options="optionMap(carry.selects.platforms)"
+          />
+          <Input
+            :id="`carry-target-chat-${index}`"
+            v-model:value="target.chat_id"
+            :placeholder="
+              target.type === 'private'
+                ? '用户 openid'
+                : '群号（QQ 官方填 group_openid）'
+            "
+          />
+          <Button
+            type="text"
+            danger
+            :title="`删除转发目标 ${index + 1}`"
+            :aria-label="`删除转发目标 ${index + 1}`"
+            @click="carry.form.targets.splice(index, 1)"
+            ><Trash2 :size="16" /></Button>
+        </div>
+        <Button
+          type="dashed"
+          block
+          @click="
+            carry.form.targets.push({ platform: '', chat_id: '', type: 'group' })
+          "
+          ><template #icon><Plus :size="16" /></template>添加转发目标</Button
+        >
       </Form.Item>
     </Form>
   </Modal>
@@ -278,3 +355,16 @@ const {
     ></Form>
   </Modal>
 </template>
+
+<style scoped>
+.carry-target-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+  align-items: center;
+}
+
+.carry-target-row .ant-input {
+  flex: 1;
+}
+</style>

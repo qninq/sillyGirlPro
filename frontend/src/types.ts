@@ -125,6 +125,7 @@ export type Reply = {
   value?: string;
   created_at?: number;
   platforms?: string[];
+  enable?: boolean | null;
 };
 
 export type Master = {
@@ -135,6 +136,12 @@ export type Master = {
   unix?: number;
 };
 
+export type CarryTarget = {
+  platform: string;
+  chat_id: string;
+  type?: "group" | "private";
+};
+
 export type CarryGroup = {
   id?: number;
   chat_id: string;
@@ -143,6 +150,8 @@ export type CarryGroup = {
   created_at?: number;
   bots_id?: string[];
   scripts?: string[];
+  targets?: CarryTarget[];
+  enable?: boolean;
 };
 
 export type Task = {

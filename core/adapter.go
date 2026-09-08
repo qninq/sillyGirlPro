@@ -391,6 +391,15 @@ func (f *Factory) Push(msg map[string]string) map[string]string {
 		fsps.MessageID = v
 	}
 	sender.SetFsps(fsps)
+	// 透传推送附加字段（如 chat_type），适配器发送时可按场景路由。
+	for key, value := range msg {
+		switch key {
+		case USER_ID, CHAT_ID, MESSAGE_ID, CONETNT:
+			continue
+		default:
+			sender.SetVar(key, value)
+		}
+	}
 	message_id, err := sender.Reply(msg[CONETNT], PUSH(""))
 	return map[string]string{
 		"message_id": message_id,

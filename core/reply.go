@@ -24,6 +24,13 @@ type Reply struct {
 	Value     string   `json:"value"`           // 值，模糊查询
 	CreatedAt int      `json:"created_at"`      // 创建时间
 	Platforms []string `json:"platforms"`       // 平台
+	// Enable 为 nil 视为启用，兼容没有该字段的旧数据。
+	Enable *bool `json:"enable,omitempty"`
+}
+
+// Disabled 报告该回复规则是否被停用。
+func (r Reply) Disabled() bool {
+	return r.Enable != nil && !*r.Enable
 }
 
 var replies []Reply //一切增删查改只需作用到这个变量
@@ -160,6 +167,11 @@ func init() {
 			}
 			if has("platforms") {
 				existingReply.Platforms = reply.Platforms
+			}
+			if has("enable") {
+				if enable, ok := v["enable"].(bool); ok {
+					existingReply.Enable = &enable
+				}
 			}
 			reply = *existingReply
 			err := REPLY.Create(&reply)

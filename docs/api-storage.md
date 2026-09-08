@@ -47,7 +47,7 @@ Base URL: `http://host:port/api`
 }
 ```
 
-需要登录的 Admin 和 User 资源通过请求头 `token: <JWT>` 认证。登录和注册接口响应体返回 JWT，前端保存后在后续请求中写入该请求头。
+需要登录的 Admin 和 User 资源通过请求头 `token: <JWT>` 认证。登录和注册接口响应体返回 JWT，前端保存后在后续请求中写入该请求头。`EventSource` 等无法自定义请求头的客户端可将 JWT 放在 `token` 查询参数中（如实时日志流 `/api/admin/logs/stream?token=<JWT>`），服务端在校验请求头为空时回退读取该参数。
 
 ### Admin 认证与系统资源
 
@@ -128,6 +128,15 @@ Base URL: `http://host:port/api`
 | `POST` | `/api/admin/message-rules/:kind/:key` |
 | `POST` | `/api/admin/message-rules/:kind/:key/deletions` |
 | `GET` | `/api/admin/bots` |
+| `GET` | `/api/admin/command-list` |
+| `POST` | `/api/admin/command-list/:key/admin` |
+| `POST` | `/api/admin/qqguild-onboard-tasks` |
+| `POST` | `/api/admin/qqguild-onboard-tasks/:task_id/polls` |
+| `GET` | `/api/admin/logs/stream`（SSE，鉴权支持 `token` 查询参数） |
+
+`POST /api/admin/qqguild-onboard-tasks` 创建 QQ 官方扫码绑定任务（q.qq.com bind 服务），返回 `task_id` 和 `qr_code_url`；`POST /api/admin/qqguild-onboard-tasks/:task_id/polls` 内部轮询绑定结果（最长 50 秒），确认成功后服务端解密凭据并自动保存 `qqguild.app_id`/`qqguild.app_secret` 且启用适配器，返回 `confirmed` 与凭据。
+
+`GET /api/admin/command-list` 返回全部已注册指令（内置 Go 指令与脚本插件指令），包括消息消费循环中硬编码的内置管理命令（群聊/私聊的 `listen`、`unlisten`/`nolisten`、`reply`、`noreply`/`unreply`，标记 `readonly`），每项含触发正则、用途、来源（`builtin`/`plugin`）和管理员限制，响应 `data.stats` 提供 `builtin`/`plugin`/`adminOnly` 数量统计。`POST /api/admin/command-list/:key/admin` 请求体为 `{ "admin": true|false }`，覆盖脚本头部的 `[admin]` 声明并持久化，立即生效且在重启与插件热重载后保留；`readonly` 的内置命令不可修改。
 
 面板集合使用请求体字段 `type: "qinglong" | "daidai" | "smallcat"` 区分具体类型。`GET /api/admin/panels` 一次返回三类面板，不再并发请求 provider 专用接口。
 

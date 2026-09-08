@@ -6,6 +6,66 @@ import (
 	"github.com/smallfawn/sillyGirl/core/common"
 )
 
+func TestMatchCarryGroup(t *testing.T) {
+	groups := []CarryGroup{
+		{ID: "group-1", Platform: "qq", Enable: true},
+		{ID: "session-rid", Platform: "web", Enable: true},
+		{ID: "disabled-group", Platform: "qq", Enable: false},
+	}
+	if got := matchCarryGroup("qq", "group-1", "user-x", groups); got == nil || got.ID != "group-1" {
+		t.Fatalf("matchCarryGroup(group chat) = %#v, want group-1", got)
+	}
+	if got := matchCarryGroup("web", "", "session-rid", groups); got == nil || got.ID != "session-rid" {
+		t.Fatalf("matchCarryGroup(private session) = %#v, want session-rid", got)
+	}
+	if got := matchCarryGroup("web", "", "unknown-rid", groups); got != nil {
+		t.Fatalf("matchCarryGroup(unknown) = %#v, want nil", got)
+	}
+	if got := matchCarryGroup("qq", "group-1", "session-rid", groups); got == nil || got.ID != "group-1" {
+		t.Fatalf("group chat must match by chat_id even when user_id differs, got %#v", got)
+	}
+	if got := matchCarryGroup("qq", "disabled-group", "", groups); got != nil {
+		t.Fatalf("disabled group should not match, got %#v", got)
+	}
+}
+
+func TestParseCarryTargets(t *testing.T) {
+	targets := parseCarryTargets([]interface{}{
+		map[string]interface{}{"platform": "qq", "chat_id": "10086"},
+		map[string]interface{}{"platform": " qqguild ", "chat_id": " open_1 ", "type": " private "},
+		map[string]interface{}{"platform": "", "chat_id": "123"},
+		map[string]interface{}{"platform": "qq", "chat_id": ""},
+		map[string]interface{}{"platform": nil, "chat_id": nil},
+		map[string]interface{}{"platform": "qq", "chat_id": "10086", "type": "group"},
+		map[string]interface{}{"platform": "qq", "chat_id": "20001", "type": "bogus"},
+		"bad-entry",
+	})
+	if len(targets) != 3 {
+		t.Fatalf("parseCarryTargets() = %#v, want 3 targets", targets)
+	}
+	if targets[0].Platform != "qq" || targets[0].ChatID != "10086" || targets[0].Type != CarryTargetGroup {
+		t.Fatalf("targets[0] = %#v, want qq/10086/group", targets[0])
+	}
+	if targets[1].Platform != "qqguild" || targets[1].ChatID != "open_1" || targets[1].Type != CarryTargetPrivate {
+		t.Fatalf("targets[1] = %#v, want qqguild/open_1/private", targets[1])
+	}
+	if targets[2].ChatID != "20001" || targets[2].Type != CarryTargetGroup {
+		t.Fatalf("targets[2] = %#v, want qq/20001/group (bogus type normalized)", targets[2])
+	}
+}
+
+func TestParseCarryTargetsRejectsInvalidPayload(t *testing.T) {
+	if got := parseCarryTargets("bad"); got != nil {
+		t.Fatalf("parseCarryTargets(\"bad\") = %#v, want nil", got)
+	}
+	if got := parseCarryTargets(nil); got != nil {
+		t.Fatalf("parseCarryTargets(nil) = %#v, want nil", got)
+	}
+	if got := parseCarryTargets([]interface{}{map[string]interface{}{"platform": "qq"}}); got != nil {
+		t.Fatalf("parseCarryTargets(missing chat_id) = %#v, want nil", got)
+	}
+}
+
 func TestCanUseAsCarryScriptRejectsRegularNodePluginWithoutCarryMeta(t *testing.T) {
 	fn := &common.Function{
 		UUID:  "script.js",

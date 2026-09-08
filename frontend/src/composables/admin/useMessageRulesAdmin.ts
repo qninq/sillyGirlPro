@@ -49,6 +49,19 @@ export function useMessageRulesAdmin() {
     message.success("已保存");
     loadMessages();
   }
+  async function toggleMessageRow(row: any, enable: boolean) {
+    const resource = messageBuckets[msgState.active].resource;
+    await post(
+      `/api/admin/message-rules/${resource}/${encodeURIComponent(row.key)}`,
+      {
+        platform: row.platform || "",
+        enable,
+        desc: row.desc || "",
+      },
+    );
+    message.success(enable ? "已启用" : "已停用");
+    loadMessages();
+  }
   async function removeMessageRow(row: any) {
     const resource = messageBuckets[msgState.active].resource;
     await post(
@@ -64,6 +77,7 @@ export function useMessageRulesAdmin() {
     loadMessages,
     openMessage,
     saveMessageRow,
+    toggleMessageRow,
     removeMessageRow,
   };
 }

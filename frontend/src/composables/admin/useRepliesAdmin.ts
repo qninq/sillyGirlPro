@@ -36,6 +36,14 @@ export function useRepliesAdmin() {
     message.success("已保存");
     loadReplies();
   }
+  async function toggleReply(row: Reply, enable: boolean) {
+    if (!row.id) return;
+    await post(`/api/admin/replies/${encodeURIComponent(row.id)}`, {
+      enable,
+    });
+    message.success(enable ? "已启用" : "已停用");
+    loadReplies();
+  }
   async function removeReply(row: Reply) {
     await post(`/api/admin/replies/${row.id}/deletions`);
     message.success("已删除");
@@ -47,6 +55,7 @@ export function useRepliesAdmin() {
     loadReplies,
     openReply,
     saveReply,
+    toggleReply,
     removeReply,
   };
 }

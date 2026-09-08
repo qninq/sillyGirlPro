@@ -573,6 +573,9 @@ func HandleMessage(sender common.Sender) {
 		if reply.Keyword == "" || reply.Value == "" {
 			continue
 		}
+		if reply.Disabled() {
+			continue
+		}
 		if reply.Number != "" && reply.Number != u && reply.Number != g {
 			continue
 		}

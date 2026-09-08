@@ -19,9 +19,11 @@ import {
   ClipboardList,
   Database,
   Home,
+  ListChecks,
   MessageSquare,
   Package,
   Plug,
+  ScrollText,
   Server,
   Settings,
   ShieldCheck,
@@ -72,6 +74,8 @@ export function useAdminController() {
     | "bots"
     | "dependencies"
     | "plugins"
+    | "logs"
+    | "commands"
     | "storage"
     | "users"
     | "tasks"
@@ -88,6 +92,8 @@ export function useAdminController() {
     "bots",
     "dependencies",
     "plugins",
+    "logs",
+    "commands",
     "storage",
     "users",
     "tasks",
@@ -499,11 +505,17 @@ export function useAdminController() {
       icon: () => h(Package, { size: 16 }),
     },
     { key: "plugins", label: "插件市场", icon: () => h(Plug, { size: 16 }) },
+    { key: "logs", label: "实时日志", icon: () => h(ScrollText, { size: 16 }) },
+    {
+      key: "commands",
+      label: "指令列表",
+      icon: () => h(ListChecks, { size: 16 }),
+    },
     { key: "storage", label: "存储", icon: () => h(Database, { size: 16 }) },
     { key: "users", label: "用户管理", icon: () => h(User, { size: 16 }) },
     {
       key: "message-tools",
-      label: "转发/回复/监听",
+      label: "消息管理",
       icon: () => h(MessageSquare, { size: 16 }),
     },
     {
@@ -740,7 +752,7 @@ export function useAdminController() {
     removeStorageBucket,
   } = useStorageAdmin();
 
-  const { replies, loadReplies, openReply, saveReply, removeReply } =
+  const { replies, loadReplies, openReply, saveReply, toggleReply, removeReply } =
     useRepliesAdmin();
 
   const { masters, loadMasters, saveMaster, removeMaster } = useMastersAdmin();
@@ -774,6 +786,7 @@ export function useAdminController() {
     changeCarryPlatform,
     openCarry,
     saveCarry,
+    toggleCarry,
     removeCarry,
   } = useCarryAdmin();
 
@@ -2261,6 +2274,9 @@ export function useAdminController() {
     qqguild_app_id: string;
     qqguild_app_secret: string;
     qqguild_sandbox: boolean;
+    qqguild_public_bot: boolean;
+    qqguild_markdown: boolean;
+    qqguild_at: boolean;
     qqguild_debug: boolean;
     pagermaid_enable: boolean;
     pagermaid_token: string;
@@ -2323,6 +2339,9 @@ export function useAdminController() {
       qqguild_app_id: "",
       qqguild_app_secret: "",
       qqguild_sandbox: false,
+      qqguild_public_bot: false,
+      qqguild_markdown: false,
+      qqguild_at: true,
       qqguild_debug: false,
       pagermaid_enable: true,
       pagermaid_token: "",
@@ -2589,6 +2608,9 @@ export function useAdminController() {
         qqguild_app_id: data["qqguild.app_id"] || "",
         qqguild_app_secret: data["qqguild.app_secret"] || "",
         qqguild_sandbox: boolSetting(data["qqguild.sandbox"]),
+        qqguild_public_bot: boolSetting(data["qqguild.public_bot"]),
+        qqguild_markdown: boolSetting(data["qqguild.markdown"]),
+        qqguild_at: boolSetting(data["qqguild.at"], true),
         qqguild_debug: boolSetting(data["qqguild.debug"]),
         pagermaid_enable: boolSetting(data["pagermaid.enable"], true),
         pagermaid_token: data["pagermaid.token"] || "",
@@ -2649,6 +2671,9 @@ export function useAdminController() {
         "qqguild.app_id": v.qqguild_app_id || "",
         "qqguild.app_secret": v.qqguild_app_secret || "",
         "qqguild.sandbox": !!v.qqguild_sandbox,
+        "qqguild.public_bot": !!v.qqguild_public_bot,
+        "qqguild.markdown": !!v.qqguild_markdown,
+        "qqguild.at": !!v.qqguild_at,
         "qqguild.debug": !!v.qqguild_debug,
         "pagermaid.enable": !!v.pagermaid_enable,
         "pagermaid.token": v.pagermaid_token || "",
@@ -3071,6 +3096,7 @@ export function useAdminController() {
     loadMessages,
     openMessage,
     saveMessageRow,
+    toggleMessageRow,
     removeMessageRow,
   } = useMessageRulesAdmin();
 
@@ -3081,7 +3107,7 @@ export function useAdminController() {
   ] as { label: string; value: MessageToolKind }[];
   const messageToolHelpText = computed(() => {
     if (messageToolKind.value === "carry")
-      return "选择平台、群号、工作机器人和处理脚本。";
+      return "选择平台、群号和转发目标，消息将直接转发到目标群。";
     if (messageToolKind.value === "reply")
       return "按关键词或正则维护自动回复规则。";
     return "维护监听群组、禁言群组和屏蔽用户。";
@@ -3344,6 +3370,9 @@ export function useAdminController() {
     restartAfterUpdate,
     runTask,
     saveCarry,
+    toggleCarry,
+    toggleMessageRow,
+    toggleReply,
     saveCurrentBotSettings,
     saveDaidaiPanel,
     saveMarketPluginEditor,

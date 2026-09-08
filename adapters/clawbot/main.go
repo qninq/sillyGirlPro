@@ -170,6 +170,49 @@ type bot struct {
 	botID    string
 	syncBuf  string
 	pollWait time.Duration
+	contexts sync.Map // to_user_id → 最近一次收到消息的上下文，供主动推送复用
+}
+
+// clawContext remembers the latest ClawBot send context (context_token /
+// run_id) learned from inbound messages; the ClawBot API can only send
+// within a received-message context, so proactive pushes reuse it until it
+// likely expires.
+type clawContext struct {
+	contextToken string
+	runID        string
+	expiresAt    int64
+}
+
+const clawContextTTL = 30 * time.Minute
+
+func (b *bot) rememberContext(toUserID, contextToken, runID string) {
+	toUserID = strings.TrimSpace(toUserID)
+	contextToken = strings.TrimSpace(contextToken)
+	if toUserID == "" || contextToken == "" {
+		return
+	}
+	b.contexts.Store(toUserID, clawContext{
+		contextToken: contextToken,
+		runID:        strings.TrimSpace(runID),
+		expiresAt:    time.Now().Add(clawContextTTL).UnixMilli(),
+	})
+}
+
+func (b *bot) lookupContext(toUserID string) (clawContext, bool) {
+	toUserID = strings.TrimSpace(toUserID)
+	if toUserID == "" {
+		return clawContext{}, false
+	}
+	value, ok := b.contexts.Load(toUserID)
+	if !ok {
+		return clawContext{}, false
+	}
+	item, ok := value.(clawContext)
+	if !ok || time.Now().UnixMilli() >= item.expiresAt {
+		b.contexts.CompareAndDelete(toUserID, value)
+		return clawContext{}, false
+	}
+	return item, true
 }
 
 func init() {
@@ -321,6 +364,7 @@ func (b *bot) handleMessage(msg weixinMessage) {
 	if b.api.debug {
 		core.Logs.Debug("clawbot处理消息：%s", string(utils.JsonMarshal(params)))
 	}
+	b.rememberContext(userID, msg.ContextToken, msg.RunID)
 	b.adapter.Receive(params)
 }
 
@@ -330,11 +374,20 @@ func (b *bot) reply(ctx context.Context, msg map[string]interface{}) string {
 		stringValue(msg[core.USER_ID]),
 	)
 	contextToken := stringValue(msg["clawbot_context_token"])
+	runID := stringValue(msg["clawbot_run_id"])
+	if contextToken == "" {
+		// 主动推送没有上下文，复用该联系人最近一次收到消息的上下文。
+		if cached, ok := b.lookupContext(toUserID); ok {
+			contextToken = cached.contextToken
+			if runID == "" {
+				runID = cached.runID
+			}
+		}
+	}
 	if toUserID == "" || contextToken == "" {
-		core.Logs.Warn("clawbot发送消息失败：缺少 to_user_id 或 context_token，ClawBot 仅支持在收到消息上下文内回复")
+		core.Logs.Warn("clawbot发送消息失败：缺少 to_user_id 或 context_token，ClawBot 仅支持在收到消息上下文内回复（主动推送需机器人先收到过该联系人的消息）")
 		return ""
 	}
-	runID := stringValue(msg["clawbot_run_id"])
 	lastMessageID := ""
 	for _, segment := range splitReplySegments(stringValue(msg[core.CONETNT])) {
 		var (

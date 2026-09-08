@@ -123,11 +123,15 @@ func initWebBot() {
 			return false
 		})
 		adapter.SetReplyHandler(func(msg map[string]interface{}) string {
-			userValue, ok := msg[core.USER_ID]
-			if !ok {
-				return ""
+			// Web 会话没有群聊概念：优先取 user_id，主动推送只带 chat_id
+			// 时回退到 chat_id 作为会话 ID。
+			userID := ""
+			for _, key := range []interface{}{msg[core.USER_ID], msg[core.CHAT_ID]} {
+				if value := strings.TrimSpace(fmt.Sprint(key)); value != "" && value != "<nil>" {
+					userID = value
+					break
+				}
 			}
-			userID := strings.TrimSpace(fmt.Sprint(userValue))
 			if userID == "" {
 				return ""
 			}

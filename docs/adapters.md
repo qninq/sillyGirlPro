@@ -45,6 +45,8 @@ ClawBot 使用腾讯 OpenClaw 微信通道同款 iLink API。后台点击“扫�
 
 回复依赖上游消息的 `context_token`。图片消息会在有效期内下载并转存为本地临时资源，插件应及时处理收到的媒体地址。
 
+主动推送（转发、`pushAdmin` 等）会复用该联系人**最近一次收到消息**的 `context_token`（30 分钟内有效）；机器人从未收到过该联系人消息时无法主动推送，会记录警告日志。
+
 ## QQ / OneBot
 
 在 NapCat、Lagrange.OneBot 等兼容端配置反向 WebSocket：
@@ -107,14 +109,30 @@ https://HOST/qqguild/webhook
 | `qqguild` | `app_secret` | 机器人 AppSecret |
 | `qqguild` | `mode` | `webhook` 或 `websocket` |
 | `qqguild` | `sandbox` | 是否使用沙箱 OpenAPI |
+| `qqguild` | `public_bot` | 公域机器人开关，开启后注册 `MESSAGE_CREATE` intent 接收频道全量消息（仅公域机器人可用，默认关闭） |
+| `qqguild` | `markdown` | 群聊/C2C 回复改用 Markdown 格式发送，失败自动回退纯文本（默认关闭） |
+| `qqguild` | `at` | 群聊回复自动 @ 发送者，仅在 `markdown` 开启时生效（默认开启） |
 | `qqguild` | `enable` | 可选开关 |
 | `qqguild` | `debug` | 调试日志 |
 
-Webhook 模式要求可访问的 HTTPS 地址；WebSocket 模式由 SillyGirl 主动连接 Gateway。
+Webhook 模式要求可访问的 HTTPS 地址；WebSocket 模式由 SillyGirl 主动连接 Gateway，断线重连采用指数退避（2s 起步、30s 封顶，连接成功后重置）。
+
+支持扫码快捷绑定：BOT 设置里点击「扫码添加机器人」，使用手机 QQ 扫描二维码并在手机上确认后，自动保存 AppID/AppSecret 并启动机器人（机器人需已在 q.qq.com 注册；密钥通过 QQ 官方绑定服务 AES-256-GCM 加密传输，服务端本地解密后落库）。
+
+消息能力：
+
+- **接收**：支持频道 @ 消息（`AT_MESSAGE_CREATE`）、频道全量消息（公域开关开启后）、群聊全量消息（`GROUP_MESSAGE_CREATE`）、群 @ 消息、C2C 私聊和频道私信；按消息 ID 做入站去重（10 秒窗口），网关重连重推不会导致重复回复。
+- **发送**：默认纯文本。回复内容中的 `[CQ:image,url=...]`、`[CQ:video,url=...]`、`[CQ:record,url=...]`、`[CQ:file,url=...]` 会被解析，群聊和 C2C 通过 QQ v2 富媒体接口上传后以 `msg_type=7` 发送，文字随首条媒体一起发送；频道场景支持单张图片 URL 直发。本地路径的媒体链接无法上传，会被忽略并记录日志。
+- **Markdown**：开启 `markdown` 开关后，群聊和 C2C 的纯文本回复改用 `msg_type=2` Markdown 发送；机器人无 Markdown 权限时自动回退纯文本。频道消息的 `content` 本身支持 Markdown，无需开关。
+- **回复自动@**：开启 `at` 开关后（默认开），群聊 Markdown 回复会自动在正文前插入 `<qqbot-at-user>` 标签 @ 发送者；仅在 `markdown` 开启时生效。
+- **主动推送**：只带 ID 的主动推送（转发、`pushAdmin` 等）按以下顺序路由：核心显式携带的 `chat_type`（群聊→群接口 `/v2/groups/{id}/messages`，私聊→C2C 接口）→ 从收到的群聊/C2C 消息学习的「openid → 场景」映射 → 未知目标按频道接口处理。群主动消息受平台月度配额限制；C2C 主动推送需要对方先私聊过机器人。
+- **撤回**：接收过的消息支持通过核心 Action（`type: delete_message`）按场景调用对应撤回接口，30 分钟内的消息有效。
 
 ## Web Bot
 
 Web Bot 随主程序注册为 `web/default`，后台右下角可直接打开聊天窗口。
+
+主动推送（转发、`pushAdmin` 等）目标为 **Web 会话 rid**（浏览器登录会话 ID，私聊类型按 `user_id` 投递，仅带 `chat_id` 时回退到 `chat_id`）；会话需保持在线，长时间无访问的会话会被清理，队列中的消息随之丢弃。
 
 | 配置 | 说明 |
 |---|---|

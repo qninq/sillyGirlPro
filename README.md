@@ -1,6 +1,6 @@
 # SillyGirl
 
-[![Version](https://img.shields.io/badge/version-v1.1.6-1677ff)](VERSION)
+[![Version](https://img.shields.io/badge/version-v1.2.1-1677ff)](VERSION)
 [![Go](https://img.shields.io/badge/Go-1.18+-00ADD8?logo=go)](go.mod)
 ## 大环境不好求职
 本人大专毕业！学习逆向5年，移动应用；PC应用；浏览器网页逆向相关！JSVMP；混淆等；可用AI工具提高开发效率！

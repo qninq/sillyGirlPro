@@ -86,17 +86,9 @@ func initCarry() {
 					s.Continue()
 					return nil
 				}
-				if chatID == "" {
-					s.Continue()
-					return nil
-				}
-				var group *CarryGroup
-				for i := range localGroups {
-					if localGroups[i].Enable && localGroups[i].ID == chatID && (localGroups[i].Platform == "" || localGroups[i].Platform == platform) {
-						group = &localGroups[i]
-						break
-					}
-				}
+				// 群聊按 chat_id 匹配；单聊会话（Web 会话、C2C 等，无
+				// chat_id）按 user_id 匹配，这样私聊渠道也能被监控转发。
+				group := matchCarryGroup(platform, chatID, s.GetUserID(), localGroups)
 				if group == nil {
 					s.Continue()
 					return nil
@@ -105,8 +97,11 @@ func initCarry() {
 					console.Debug("%s 忽略机器人(%s)消息，搬运群(%s)限定工作机器人%v", traceID, botID, chatID, group.BotsID)
 					return nil
 				}
+				forwardCarryTargets(s, *group)
 				if len(group.Scripts) == 0 {
-					console.Debug("%s 搬运群(%s)未配置处理脚本", traceID, chatID)
+					if len(group.Targets) == 0 {
+						console.Debug("%s 搬运群(%s)未配置转发目标或处理脚本", traceID, chatID)
+					}
 					s.Continue()
 					return nil
 				}
@@ -210,10 +205,134 @@ type CarryGroup struct {
 	Include        []string `json:"include"`        //包含关键词 多个关键词用逗号隔开 用户复制粘贴过去后自动转换成多彩标签
 	Exclude        []string `json:"exclude"`        //排除关键词 包含关键词
 	CreatedAt      int      `json:"created_at"`     //创建时间戳(秒)转换成日期
-	BotsID         []string `json:"bots_id"`        //工作机器人 多选
-	Scripts        []string `json:"scripts"`        //处理脚本
-	Deduplication  bool     `json:"deduplication"`  //文本去重
-	Deduplication2 bool     `json:"deduplication2"` //图片去重
+	BotsID         []string      `json:"bots_id"`        //工作机器人 多选
+	Scripts        []string      `json:"scripts"`        //处理脚本
+	Targets        []CarryTarget `json:"targets"`        //转发目标（配置后消息直接转发，无需处理脚本）
+	Deduplication  bool          `json:"deduplication"`  //文本去重
+	Deduplication2 bool          `json:"deduplication2"` //图片去重
+}
+
+// 转发目标类型：群聊走 chat_id 推送，私聊走 user_id 推送。
+const (
+	CarryTargetGroup   = "group"
+	CarryTargetPrivate = "private"
+)
+
+type CarryTarget struct {
+	Platform string `json:"platform"` //目标平台
+	ChatID   string `json:"chat_id"`  //目标 ID（群聊为群号/群 openid，私聊为用户 openid）
+	Type     string `json:"type"`     //目标类型：group 群聊 / private 私聊，默认群聊
+}
+
+// parseCarryTargets 解析请求里的转发目标列表，过滤空项并去重。
+func parseCarryTargets(raw interface{}) []CarryTarget {
+	items, ok := raw.([]interface{})
+	if !ok {
+		return nil
+	}
+	targets := []CarryTarget{}
+	seen := map[string]bool{}
+	for _, item := range items {
+		entry, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		platform := carryTargetField(entry["platform"])
+		chatID := carryTargetField(entry["chat_id"])
+		if platform == "" || chatID == "" {
+			continue
+		}
+		targetType := carryTargetField(entry["type"])
+		if targetType != CarryTargetPrivate {
+			targetType = CarryTargetGroup
+		}
+		key := targetType + "|" + platform + "|" + chatID
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		targets = append(targets, CarryTarget{Platform: platform, ChatID: chatID, Type: targetType})
+	}
+	if len(targets) == 0 {
+		return nil
+	}
+	return targets
+}
+
+func carryTargetField(value interface{}) string {
+	switch v := value.(type) {
+	case string:
+		return strings.TrimSpace(v)
+	case float64:
+		return strings.TrimSuffix(fmt.Sprintf("%.0f", v), ".")
+	case int:
+		return fmt.Sprint(v)
+	case int64:
+		return fmt.Sprint(v)
+	default:
+		return ""
+	}
+}
+
+// matchCarryGroup 返回命中的转发群组：群聊按 chat_id 匹配；chat_id 为空的
+// 单聊会话（Web 会话、C2C 私聊等）按 user_id 匹配。
+func matchCarryGroup(platform, chatID, userID string, groups []CarryGroup) *CarryGroup {
+	for i := range groups {
+		g := &groups[i]
+		if !g.Enable {
+			continue
+		}
+		if g.Platform != "" && g.Platform != platform {
+			continue
+		}
+		if g.ID == chatID || (chatID == "" && g.ID == userID) {
+			return g
+		}
+	}
+	return nil
+}
+
+// forwardCarryTargets 把来源消息直接推送到转发目标，返回投递的条数。
+func forwardCarryTargets(s common.Sender, group CarryGroup) int {
+	if len(group.Targets) == 0 {
+		return 0
+	}
+	content := s.GetContent()
+	if strings.TrimSpace(content) == "" {
+		return 0
+	}
+	platform := s.GetImType()
+	chatID := s.GetChatID()
+	delivered := 0
+	for _, target := range group.Targets {
+		if target.Type != CarryTargetPrivate && target.Platform == platform && target.ChatID == chatID {
+			console.Debug("搬运群(%s)目标与来源相同，跳过 %s/%s", chatID, target.Platform, target.ChatID)
+			continue
+		}
+		adapter, err := GetAdapter(target.Platform)
+		if err != nil {
+			console.Error("搬运群(%s)转发到 %s/%s(%s) 失败：%v", chatID, target.Platform, target.ChatID, target.Type, err)
+			continue
+		}
+		msg := map[string]string{"content": content, "chat_type": target.Type}
+		if target.Type == CarryTargetPrivate {
+			msg["user_id"] = target.ChatID
+		} else {
+			msg["chat_id"] = target.ChatID
+		}
+		result := adapter.Push(msg)
+		if result["error"] != "" {
+			console.Error("搬运群(%s)转发到 %s/%s(%s) 失败：%s", chatID, target.Platform, target.ChatID, target.Type, result["error"])
+			continue
+		}
+		delivered++
+		if result["message_id"] == "" {
+			console.Warn("搬运群(%s)转发到 %s/%s(%s) 未返回消息ID，可能未送达，请检查目标 ID 是否正确及适配器日志", chatID, target.Platform, target.ChatID, target.Type)
+			continue
+		}
+		console.Debug("搬运群(%s)已转发到 %s/%s(%s)（message_id=%s）", chatID, target.Platform, target.ChatID, target.Type, result["message_id"])
+	}
+	return delivered
 }
 
 // CARRY API
@@ -297,6 +416,19 @@ func init() {
 			ApiNotFound(ctx, "搬运群组不存在")
 			return
 		}
+		// 编辑时允许修改群号：改存到新群号并删除旧记录。
+		renamed := false
+		if !creating {
+			desiredID := carryTargetField(updateData["chat_id"])
+			if desiredID != "" && desiredID != pathID {
+				if strings.TrimSpace(CarryGroups.GetString(desiredID)) != "" {
+					ApiConflict(ctx, "搬运群组已存在")
+					return
+				}
+				chat_id = desiredID
+				renamed = true
+			}
+		}
 		var cg = CarryGroup{
 			ID:       chat_id,
 			Platform: platform,
@@ -331,12 +463,21 @@ func init() {
 				if scripts, ok := value.([]interface{}); ok {
 					cg.Scripts = toStringSlice(scripts)
 				}
+			case "targets":
+				cg.Targets = parseCarryTargets(value)
+			case "enable":
+				if enable, ok := value.(bool); ok {
+					cg.Enable = enable
+				}
 			}
 		}
 		if cg.CreatedAt == 0 {
 			cg.CreatedAt = int(time.Now().Unix())
 		}
 		_, _, err = CarryGroups.Set(chat_id, utils.JsonMarshal(cg))
+		if err == nil && renamed {
+			CarryGroups.Set(pathID, "")
+		}
 		if err != nil {
 			ApiInternalError(ctx, err.Error())
 			return
