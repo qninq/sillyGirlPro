@@ -70,7 +70,6 @@ const {
   pluginInitial,
   pluginInstalled,
   pluginRuntimeEnabled,
-  pluginOpenAvailable,
   pluginPanelChoices,
   pluginPanelEmptyText,
   pluginPanelKind,
@@ -558,19 +557,6 @@ const {
   >
     <Spin :spinning="pluginConfigs.loading">
       <div v-if="pluginConfigs.selected" class="plugin-settings-modal-body">
-        <section v-if="pluginOpenAvailable" class="plugin-user-open-setting">
-          <div class="plugin-user-open-copy">
-            <Typography.Text strong>是否开放为普通用户</Typography.Text>
-            <Typography.Text type="secondary">
-              开启后普通用户可在 Home 页面看到该插件，自行填写用户表单。
-            </Typography.Text>
-          </div>
-          <Switch
-            id="plugin-open-to-users"
-            v-model:checked="pluginConfigs.openToUsers"
-            aria-label="是否开放为普通用户"
-          />
-        </section>
         <div
           v-if="
             pluginConfigs.configurable ||

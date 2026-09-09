@@ -182,8 +182,8 @@ func TestProductionAPIDeclarationsUseGETPOSTResourcePaths(t *testing.T) {
 			}
 		}
 	}
-	if len(routes) < 105 {
-		t.Fatalf("AST route audit covered only %d declarations; expected at least 105", len(routes))
+	if len(routes) < 100 {
+		t.Fatalf("AST route audit covered only %d declarations; expected at least 100", len(routes))
 	}
 	t.Logf("audited %d production API route declarations", len(routes))
 }
@@ -322,7 +322,7 @@ func TestUserAPIRoutesRequireAuthentication(t *testing.T) {
 			return true
 		})
 	}
-	if checked < 11 {
+	if checked < 6 {
 		t.Fatalf("user auth audit covered only %d routes", checked)
 	}
 }

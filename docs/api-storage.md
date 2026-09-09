@@ -102,7 +102,6 @@ Base URL: `http://host:port/api`
 | `GET` | `/api/admin/local-plugins/:id/dependents` |
 | `POST` | `/api/admin/local-plugins/:id/status` |
 | `POST` | `/api/admin/local-plugins/:id/deletions` |
-| `POST` | `/api/admin/plugins/:uuid/access` |
 | `GET` | `/api/admin/dependencies?runtime=:runtime&plugin=:plugin` |
 | `POST` | `/api/admin/dependencies` |
 | `POST` | `/api/admin/dependency-deletions` |
@@ -156,11 +155,6 @@ Base URL: `http://host:port/api`
 | `GET` | `/api/user/profile` |
 | `POST` | `/api/user/bindings/:platform` |
 | `POST` | `/api/user/bindings/:platform/deletions` |
-| `GET` | `/api/user/plugins` |
-| `GET` | `/api/user/plugins/:uuid/form` |
-| `POST` | `/api/user/plugins/:uuid/form-records` |
-| `POST` | `/api/user/plugins/:uuid/form-records/:record_id` |
-| `POST` | `/api/user/plugins/:uuid/form-records/:record_id/deletions` |
 
 ### Public 资源
 

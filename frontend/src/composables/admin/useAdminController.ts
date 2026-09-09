@@ -1298,16 +1298,12 @@ export function useAdminController() {
     return row.install_status === 1;
   }
 
-  function pluginCanOpen(row: PluginInfo) {
-    return pluginInstalled(row) && row.has_user_form === true;
-  }
-
   function pluginCanConfigure(row: PluginInfo) {
     return pluginInstalled(row) && row.config_registered === true;
   }
 
   function pluginCanManage(row: PluginInfo) {
-    return !row.module && (pluginCanConfigure(row) || pluginCanOpen(row));
+    return !row.module && pluginCanConfigure(row);
   }
 
   function pluginEditorLanguageExtension(): Extension {
@@ -2066,7 +2062,6 @@ export function useAdminController() {
     form: {} as Record<string, any>,
     text: {} as Record<string, string>,
     configurable: false,
-    openToUsers: false,
     loading: false,
     saving: false,
     modalOpen: false,
@@ -2079,14 +2074,8 @@ export function useAdminController() {
       prop: prop as any,
     }));
   });
-  const pluginOpenAvailable = computed(() =>
-    Boolean(pluginConfigs.marketRow && pluginCanOpen(pluginConfigs.marketRow)),
-  );
   const pluginSettingsCanSave = computed(() =>
-    Boolean(
-      pluginConfigs.selected &&
-      (pluginConfigs.configurable || pluginOpenAvailable.value),
-    ),
+    Boolean(pluginConfigs.selected && pluginConfigs.configurable),
   );
   function openPluginConfig(
     row: any,
@@ -2096,7 +2085,6 @@ export function useAdminController() {
     pluginConfigs.selected = row;
     pluginConfigs.marketRow = marketRow;
     pluginConfigs.configurable = configurable;
-    pluginConfigs.openToUsers = Boolean(marketRow?.open);
     const values = { ...(row.user_config || {}) };
     for (const [key, prop] of Object.entries(
       row.schema?.properties || {},
@@ -2193,23 +2181,6 @@ export function useAdminController() {
     try {
       if (pluginConfigs.configurable) {
         await putPluginConfig(pluginConfigs.selected.uuid, value);
-      }
-      const marketRow = pluginConfigs.marketRow;
-      if (
-        marketRow &&
-        pluginCanOpen(marketRow) &&
-        Boolean(marketRow.open) !== pluginConfigs.openToUsers
-      ) {
-        const res = await post<ApiEnvelope<{ uuid: string; open: boolean }>>(
-          `/api/admin/plugins/${encodeURIComponent(marketRow.id)}/access`,
-          {
-            open: pluginConfigs.openToUsers,
-          },
-        );
-        const data = apiData(res);
-        marketRow.open = data.open;
-        if (plugins.detail?.id === marketRow.id)
-          plugins.detail.open = data.open;
       }
       message.success("插件设置已保存");
       pluginConfigs.modalOpen = false;
@@ -3302,7 +3273,6 @@ export function useAdminController() {
     pluginInitial,
     pluginInstalled,
     pluginRuntimeEnabled,
-    pluginOpenAvailable,
     pluginPanelChoices,
     pluginPanelEmptyText,
     pluginPanelKind,

@@ -31,8 +31,7 @@ const nodeRuntimePreloadScript = `
   if (process.env.SILLYGIRL_CONFIG_REGISTER_ONLY === "true") {
     const fs = require("fs");
     const expectedPlugin = process.env.SILLYGIRL_EXPECT_PLUGIN_FORM === "true";
-    const expectedUser = process.env.SILLYGIRL_EXPECT_USER_FORM === "true";
-    const exported = { plugin: null, user: null };
+    const exported = { plugin: null };
     function isSchemaNode(value) { return !!(value && value.__schemaNode && value.schema); }
     function normalizeFormField(value, path) {
       if (isSchemaNode(value)) return value.schema;
@@ -108,7 +107,7 @@ const nodeRuntimePreloadScript = `
     };
     let finishScheduled = false;
     function finishIfReady() {
-      if ((expectedPlugin && !exported.plugin) || (expectedUser && !exported.user)) return;
+      if (expectedPlugin && !exported.plugin) return;
       const target = process.env.SILLYGIRL_CONFIG_SCHEMA_FILE || "";
       const data = JSON.stringify(exported);
       if (target) fs.writeFileSync(target, data); else console.log("__SILLYGIRL_CONFIG_SCHEMA__" + data);
@@ -116,16 +115,11 @@ const nodeRuntimePreloadScript = `
     }
     function scheduleFinish() { if (finishScheduled) return; finishScheduled = true; process.nextTick(function () { finishScheduled = false; finishIfReady(); }); }
     function PluginForm(schema) { exported.plugin = normalizeSchema(schema); scheduleFinish(); return this; }
-    function UserForm(fields) { const validators = {}; for (const key of Object.keys(fields || {})) if (isSchemaNode(fields[key]) && fields[key].validators.length) validators[key] = fields[key].validators; this.definition = { schema: normalizeSchema(fields), multiple: 1, key_by: [], validators }; exported.user = this.definition; scheduleFinish(); }
-    UserForm.prototype.multiple = function (limit) { this.definition.multiple = Math.max(1, Number(limit || 1) | 0); scheduleFinish(); return this; };
-    UserForm.prototype.keyBy = function (fields) { this.definition.key_by = (Array.isArray(fields) ? fields : [fields]).map(String); scheduleFinish(); return this; };
     const pluginForm = Object.assign(function (schema) { return new PluginForm(schema); }, helpers, { defaults: fields => defaults(normalizeSchema(fields)) });
-    const userForm = Object.assign(function (schema) { return new UserForm(schema); }, helpers);
     const dummy = new Proxy(function () {}, { get: () => dummy, apply: () => dummy, construct: () => dummy });
     const sg = {
       Adapter: dummy, Bucket: dummy, sender: dummy, container: dummy, console: dummy,
       plugin: { Form: pluginForm },
-      user: { Form: userForm, getUserList: async () => [], getUser: async () => null },
       utils: { sleep: async () => {}, version: async () => ({}), restart: async () => ({}), update: async () => ({}), buildCQTag: () => "", parseCQText: () => [], image: url => "[CQ:image,url=" + String(url || "") + "]", video: url => "[CQ:video,url=" + String(url || "") + "]" },
     };
     const Module = require("module");

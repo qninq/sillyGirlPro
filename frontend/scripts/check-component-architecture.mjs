@@ -35,6 +35,7 @@ const views = [
   "ContainersView",
   "PluginsView",
   "LogsView",
+  "CommandsView",
   "SettingsView",
 ];
 

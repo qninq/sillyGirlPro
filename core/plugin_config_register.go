@@ -72,8 +72,8 @@ func registerNodePluginConfigSchema(path, uuid string) error {
 }
 
 type registeredPluginForms struct {
-	Plugin map[string]interface{}    `json:"plugin"`
-	User   *pluginUserFormDefinition `json:"user"`
+	Plugin map[string]interface{} `json:"plugin"`
+	User   map[string]interface{} `json:"user"`
 }
 
 func pluginFormRegistrationEnv(path string) []string {
@@ -81,7 +81,6 @@ func pluginFormRegistrationEnv(path string) []string {
 	source := string(data)
 	return []string{
 		fmt.Sprintf("SILLYGIRL_EXPECT_PLUGIN_FORM=%t", pluginFormCallPattern.MatchString(source)),
-		fmt.Sprintf("SILLYGIRL_EXPECT_USER_FORM=%t", userFormCallPattern.MatchString(source)),
 	}
 }
 
@@ -90,25 +89,11 @@ func saveRegisteredPluginForms(uuid string, data []byte) error {
 	if err := json.Unmarshal(data, &forms); err != nil {
 		return fmt.Errorf("表单 schema 解析失败：%v", err)
 	}
-	if len(forms.Plugin) == 0 && forms.User == nil {
-		return errors.New("插件没有导出 plugin.Form 或 user.Form")
+	if len(forms.Plugin) == 0 {
+		return errors.New("插件没有导出 plugin.Form")
 	}
-	if len(forms.Plugin) != 0 {
-		if _, _, err := SetBucketKeyValue(pluginConfigSchemas, uuid, forms.Plugin); err != nil {
-			return err
-		}
-	} else {
-		_, _, _ = SetBucketKeyValue2(pluginConfigSchemas, uuid, nil)
-	}
-	if forms.User != nil {
-		if err := validateUserFormDefinition(*forms.User); err != nil {
-			return err
-		}
-		if _, _, err := SetBucketKeyValue(pluginUserFormSchemas, uuid, forms.User); err != nil {
-			return err
-		}
-	} else {
-		_, _, _ = SetBucketKeyValue2(pluginUserFormSchemas, uuid, nil)
+	if _, _, err := SetBucketKeyValue(pluginConfigSchemas, uuid, forms.Plugin); err != nil {
+		return err
 	}
 	return nil
 }

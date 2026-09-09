@@ -227,7 +227,7 @@ def _is_schema_node(value):
 def _normalize_form_field(value, path="field"):
     if _is_schema_node(value):
         return value.toJSON()
-    raise RuntimeError(f"Form schema {path} must use plugin.Form/user.Form field helpers")
+    raise RuntimeError(f"Form schema {path} must use plugin.Form field helpers")
 
 
 def normalize_config_schema(fields):
@@ -468,67 +468,11 @@ for _name in ("string", "number", "integer", "boolean", "array", "object", "sele
 _plugin_form.defaults = lambda fields: _pluginConfigDefaults(normalize_config_schema(fields))
 
 
-class _UserFormInstance:
-    def __init__(self, schema):
-        validators = {str(key): value.validators for key, value in schema.items() if _is_schema_node(value) and value.validators}
-        self.definition = {"schema": normalize_config_schema(schema), "multiple": 1, "key_by": [], "validators": validators}
-        self._register()
-
-    def _register(self):
-        if not plugin_id:
-            return
-        try:
-            asyncio.get_running_loop().create_task(Bucket("plugin_user_form_schemas").set(plugin_id, self.definition))
-        except RuntimeError:
-            pass
-
-    def multiple(self, limit):
-        self.definition["multiple"] = max(1, int(limit or 1))
-        self._register()
-        return self
-
-    def keyBy(self, fields):
-        self.definition["key_by"] = [str(item) for item in (fields if isinstance(fields, (list, tuple)) else [fields])]
-        self._register()
-        return self
-
-
-def _user_form(schema):
-    return _UserFormInstance(schema)
-
-
-for _name in ("string", "number", "integer", "boolean", "array", "object", "select"):
-    setattr(_user_form, _name, getattr(_formHelpers, _name))
-
-
 class Plugin:
     Form = staticmethod(_plugin_form)
 
 
-class User:
-    Form = staticmethod(_user_form)
-
-    async def getUserList(self, options=None):
-        rows = await Bucket("__plugin_users__").get("list", [])
-        rows = rows if isinstance(rows, list) else []
-        if (options or {}).get("withRecords"):
-            return rows
-        return [{key: value for key, value in item.items() if key != "records"} for item in rows]
-
-    async def getUser(self, selector):
-        rows = await self.getUserList({"withRecords": True})
-        if isinstance(selector, dict):
-            user_id, name = str(selector.get("id") or ""), str(selector.get("name") or "")
-        else:
-            user_id = name = str(selector or "")
-        matches = [item for item in rows if (user_id and item.get("id") == user_id) or (name and name in (item.get("username"), item.get("nickname")))]
-        if len(matches) > 1:
-            raise RuntimeError("USER_AMBIGUOUS")
-        return matches[0] if matches else None
-
-
 plugin = Plugin()
-user = User()
 
 
 async def _read_runtime_panels(key):

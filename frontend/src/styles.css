@@ -945,27 +945,6 @@ canvas {
   gap: 16px;
 }
 
-.plugin-user-open-setting {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  padding: 16px;
-  border: 1px solid #bbf7d0;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #f0fdf4 0%, #f8fffb 100%);
-}
-
-.plugin-user-open-copy {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.plugin-user-open-copy .ant-typography {
-  margin: 0;
-}
-
 .plugin-panel-id-picker {
   display: flex;
   flex-wrap: wrap;

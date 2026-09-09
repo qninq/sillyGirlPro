@@ -1,6 +1,6 @@
 ---
 name: sillygirl-plugin-writer
-description: Write, migrate, review, debug, and validate complete SillyGirl JavaScript/NodeJS or Python plugins. Use for message-rule plugins, cron jobs, startup jobs, web services, carry handlers, modules, plugin.Form/user.Form schemas, Bucket persistence, sender APIs, dependencies, and QingLong/DaiDai integrations. Trigger on requests to create or fix SillyGirl scripts, plugin metadata, plugin-market files, or files under plugins/ or /data/plugins.
+description: Write, migrate, review, debug, and validate complete SillyGirl JavaScript/NodeJS or Python plugins. Use for message-rule plugins, cron jobs, startup jobs, web services, carry handlers, modules, plugin.Form schemas, Bucket persistence, sender APIs, dependencies, and QingLong/DaiDai integrations. Trigger on requests to create or fix SillyGirl scripts, plugin metadata, plugin-market files, or files under plugins/ or /data/plugins.
 ---
 
 # SillyGirl Plugin Writer
@@ -125,8 +125,6 @@ const Config = new plugin.Form({
 ```
 
 Read values inside `main` with `await Config.get()`. Use `new Bucket("plugin-name")` for persistent state and await `get`, `set`, `delete`, and `keys`. Do not write into the shared `sillyGirl` Bucket unless explicitly requested.
-
-Use `new user.Form({...})` for end-user records. Use `.required().err(...)`, `.match(...).err(...)`, and `.test(...)` for validation; `.test` runs in an isolated process and must be self-contained.
 
 ## Containers and External APIs
 

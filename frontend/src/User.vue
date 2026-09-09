@@ -9,18 +9,13 @@ import ConfigProvider from "ant-design-vue/es/config-provider";
 import Empty from "ant-design-vue/es/empty";
 import Form from "ant-design-vue/es/form";
 import Input from "ant-design-vue/es/input";
-import InputNumber from "ant-design-vue/es/input-number";
-import Modal from "ant-design-vue/es/modal";
-import Select from "ant-design-vue/es/select";
 import Space from "ant-design-vue/es/space";
-import Spin from "ant-design-vue/es/spin";
-import Switch from "ant-design-vue/es/switch";
 import Tag from "ant-design-vue/es/tag";
 import Typography from "ant-design-vue/es/typography";
 import message from "ant-design-vue/es/message";
 import zhCN from "ant-design-vue/es/locale/zh_CN";
 import AppBrand from "./components/common/AppBrand.vue";
-import { Link, LogOut, Plug } from "lucide-vue-next";
+import { Link, LogOut } from "lucide-vue-next";
 
 type ApiEnvelope<T> = {
   status: boolean;
@@ -49,38 +44,6 @@ type Bindings = {
   updated_at?: number;
 };
 
-type OpenPlugin = {
-  id: string;
-  title: string;
-  desc?: string;
-  icon?: string;
-  version?: string;
-  author?: string;
-  class?: string;
-  rule?: string;
-  dependencies?: string[];
-  has_user_form?: boolean;
-};
-
-type UserFormRecord = {
-  id: string;
-  values: Record<string, unknown>;
-  created_at: number;
-  updated_at: number;
-};
-
-type PluginUserFormView = {
-  uuid: string;
-  title: string;
-  schema: {
-    properties?: Record<string, Record<string, unknown>>;
-    propertyOrder?: string[];
-  };
-  multiple: number;
-  key_by: string[];
-  records: UserFormRecord[];
-};
-
 type UserAnnouncement = {
   enabled?: boolean;
   content?: string;
@@ -100,17 +63,6 @@ const bindings = reactive<Bindings>({});
 const announcement = reactive<UserAnnouncement>({
   enabled: false,
   content: "",
-});
-const openPlugins = ref<OpenPlugin[]>([]);
-const pluginUserForm = reactive({
-  open: false,
-  loading: false,
-  saving: false,
-  plugin: null as OpenPlugin | null,
-  view: null as PluginUserFormView | null,
-  recordID: "",
-  values: {} as Record<string, unknown>,
-  errors: {} as Record<string, string>,
 });
 const bindForm = reactive({
   qq: "",
@@ -292,27 +244,6 @@ function renderAnnouncement(content: string, format: string) {
   return sanitizeAnnouncementHTML(html);
 }
 
-function pluginIconIsImage(plugin: OpenPlugin) {
-  const icon = String(plugin.icon || "").trim();
-  return (
-    /^https?:\/\//i.test(icon) ||
-    icon.startsWith("/") ||
-    icon.startsWith("data:image/")
-  );
-}
-
-function pluginInitial(plugin: OpenPlugin) {
-  const text = String(plugin.title || plugin.id || "P").trim();
-  return (text ? text.slice(0, 1) : "P").toUpperCase();
-}
-
-function pluginClassTags(plugin: OpenPlugin) {
-  return String(plugin.class || "")
-    .split(/[,，\s]+/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
 async function requestJSON<T>(
   url: string,
   options: RequestInit = {},
@@ -372,166 +303,6 @@ async function loadProfile() {
   }
 }
 
-async function loadOpenPlugins() {
-  try {
-    openPlugins.value = await requestJSON<OpenPlugin[]>("/api/user/plugins");
-  } catch (_) {
-    openPlugins.value = [];
-  }
-}
-
-const pluginUserFormFields = computed(() => {
-  const schema = pluginUserForm.view?.schema;
-  const properties = schema?.properties || {};
-  const declared = Array.isArray(schema?.propertyOrder)
-    ? schema.propertyOrder
-    : [];
-  const names = [
-    ...declared.filter((name) =>
-      Object.prototype.hasOwnProperty.call(properties, name),
-    ),
-  ];
-  for (const name of Object.keys(properties))
-    if (!names.includes(name)) names.push(name);
-  return names.map((name) => ({ name, schema: properties[name] }));
-});
-
-function userFormDefaultValues(view: PluginUserFormView) {
-  const values: Record<string, unknown> = {};
-  for (const [name, schema] of Object.entries(view.schema?.properties || {})) {
-    if (Object.prototype.hasOwnProperty.call(schema, "default"))
-      values[name] = schema.default;
-    else if (schema.type === "boolean") values[name] = false;
-    else values[name] = "";
-  }
-  return values;
-}
-
-async function openPluginUserForm(plugin: OpenPlugin) {
-  if (!plugin.has_user_form) return;
-  pluginUserForm.open = true;
-  pluginUserForm.loading = true;
-  pluginUserForm.plugin = plugin;
-  pluginUserForm.recordID = "";
-  pluginUserForm.errors = {};
-  try {
-    const view = await requestJSON<PluginUserFormView>(
-      `/api/user/plugins/${encodeURIComponent(plugin.id)}/form`,
-    );
-    pluginUserForm.view = view;
-    pluginUserForm.values = userFormDefaultValues(view);
-  } catch (error) {
-    pluginUserForm.open = false;
-    message.error(error instanceof Error ? error.message : "用户表单加载失败");
-  } finally {
-    pluginUserForm.loading = false;
-  }
-}
-
-function editPluginUserRecord(record: UserFormRecord) {
-  pluginUserForm.recordID = record.id;
-  pluginUserForm.values = {
-    ...userFormDefaultValues(pluginUserForm.view!),
-    ...record.values,
-  };
-  pluginUserForm.errors = {};
-}
-
-function resetPluginUserForm() {
-  if (!pluginUserForm.view) return;
-  pluginUserForm.recordID = "";
-  pluginUserForm.values = userFormDefaultValues(pluginUserForm.view);
-  pluginUserForm.errors = {};
-}
-
-function validatePluginUserValues() {
-  const errors: Record<string, string> = {};
-  for (const { name, schema } of pluginUserFormFields.value) {
-    const value = pluginUserForm.values[name];
-    const text = value == null ? "" : String(value);
-    const messages = (schema.errorMessages || {}) as Record<string, string>;
-    if (schema.required && text === "") {
-      errors[name] = messages.required || "该字段不能为空";
-      continue;
-    }
-    if (text !== "" && schema.pattern) {
-      try {
-        if (!new RegExp(String(schema.pattern)).test(text))
-          errors[name] = messages.match || "格式不正确";
-      } catch (_) {
-        errors[name] = "表单正则配置错误";
-      }
-    }
-  }
-  pluginUserForm.errors = errors;
-  return Object.keys(errors).length === 0;
-}
-
-function userFormSelectOptions(schema: Record<string, unknown>) {
-  const values = Array.isArray(schema.enum) ? schema.enum : [];
-  const names = Array.isArray(schema.enumNames) ? schema.enumNames : [];
-  return values.map((value, index) => ({
-    value,
-    label: String(names[index] ?? value),
-  }));
-}
-
-async function savePluginUserForm() {
-  if (!pluginUserForm.plugin || !validatePluginUserValues()) return;
-  pluginUserForm.saving = true;
-  try {
-    const recordPath = pluginUserForm.recordID
-      ? `/api/user/plugins/${encodeURIComponent(pluginUserForm.plugin.id)}/form-records/${encodeURIComponent(pluginUserForm.recordID)}`
-      : `/api/user/plugins/${encodeURIComponent(pluginUserForm.plugin.id)}/form-records`;
-    await requestJSON(recordPath, {
-      method: "POST",
-      body: JSON.stringify({
-        record_id: pluginUserForm.recordID,
-        value: pluginUserForm.values,
-      }),
-    });
-    message.success(pluginUserForm.recordID ? "参数已更新" : "参数已提交");
-    await openPluginUserForm(pluginUserForm.plugin);
-  } catch (error) {
-    if (error instanceof UserRequestError) {
-      const rows = (
-        error.data as {
-          errors?: Array<{ field?: string; message?: string }>;
-        } | null
-      )?.errors;
-      if (Array.isArray(rows)) {
-        pluginUserForm.errors = Object.fromEntries(
-          rows
-            .filter((item) => item.field && item.message)
-            .map((item) => [item.field!, item.message!]),
-        );
-      }
-    }
-    message.error(error instanceof Error ? error.message : "参数保存失败");
-  } finally {
-    pluginUserForm.saving = false;
-  }
-}
-
-async function deletePluginUserRecord(record: UserFormRecord) {
-  if (!pluginUserForm.plugin) return;
-  Modal.confirm({
-    title: "删除提交记录",
-    content: "确认删除这条插件参数吗？",
-    okText: "删除",
-    okType: "danger",
-    cancelText: "取消",
-    async onOk() {
-      await requestJSON(
-        `/api/user/plugins/${encodeURIComponent(pluginUserForm.plugin!.id)}/form-records/${encodeURIComponent(record.id)}/deletions`,
-        { method: "POST" },
-      );
-      message.success("记录已删除");
-      await openPluginUserForm(pluginUserForm.plugin!);
-    },
-  });
-}
-
 async function logout() {
   try {
     await requestJSON<null>("/api/user/sessions/current/deletions", {
@@ -569,7 +340,6 @@ async function removeBinding(platform: "qq" | "telegram") {
 
 onMounted(() => {
   loadProfile();
-  loadOpenPlugins();
 });
 </script>
 
@@ -644,167 +414,6 @@ onMounted(() => {
                 </Space>
               </Card>
             </section>
-
-            <Card class="user-panel user-plugin-panel" :bordered="false">
-              <div class="user-plugin-toolbar">
-                <Space size="small">
-                  <Plug :size="18" />
-                  <Typography.Text strong>开放插件</Typography.Text>
-                  <Typography.Text class="muted"
-                    >管理员已开放给普通用户的插件</Typography.Text
-                  >
-                </Space>
-                <Tag color="green">{{ openPlugins.length }} 个</Tag>
-              </div>
-              <div v-if="openPlugins.length" class="user-plugin-grid">
-                <article
-                  v-for="plugin in openPlugins"
-                  :key="plugin.id"
-                  class="user-plugin-card"
-                  :class="{
-                    'user-plugin-card-clickable': plugin.has_user_form,
-                  }"
-                  @click="openPluginUserForm(plugin)"
-                >
-                  <div class="user-plugin-icon" aria-hidden="true">
-                    <img
-                      v-if="pluginIconIsImage(plugin)"
-                      :src="plugin.icon"
-                      alt=""
-                    />
-                    <span v-else>{{ pluginInitial(plugin) }}</span>
-                  </div>
-                  <div class="user-plugin-main">
-                    <Typography.Text strong class="user-plugin-title">{{
-                      plugin.title || plugin.id
-                    }}</Typography.Text>
-                    <Typography.Paragraph class="user-plugin-desc">
-                      {{ plugin.desc || "该插件暂未填写介绍。" }}
-                    </Typography.Paragraph>
-                    <Space wrap size="small">
-                      <Tag v-if="plugin.version" color="blue">{{
-                        plugin.version
-                      }}</Tag>
-                      <Tag
-                        v-for="item in pluginClassTags(plugin)"
-                        :key="item"
-                        >{{ item }}</Tag
-                      >
-                      <Tag v-if="plugin.author">{{ plugin.author }}</Tag>
-                      <Tag v-if="plugin.rule" color="green">{{
-                        plugin.rule
-                      }}</Tag>
-                      <Tag v-if="plugin.has_user_form" color="cyan"
-                        >点击填写参数</Tag
-                      >
-                    </Space>
-                  </div>
-                </article>
-              </div>
-              <Empty v-else image="simple" description="暂时没有开放插件" />
-            </Card>
-
-            <Modal
-              v-model:open="pluginUserForm.open"
-              :title="`${pluginUserForm.view?.title || pluginUserForm.plugin?.title || '插件'}参数`"
-              width="720px"
-              ok-text="保存"
-              cancel-text="取消"
-              :confirm-loading="pluginUserForm.saving"
-              @ok="savePluginUserForm"
-              @cancel="resetPluginUserForm"
-            >
-              <Spin :spinning="pluginUserForm.loading">
-                <div v-if="pluginUserForm.view" class="plugin-user-form-modal">
-                  <Alert
-                    type="info"
-                    show-icon
-                    :message="
-                      pluginUserForm.view.multiple > 1
-                        ? `最多可提交 ${pluginUserForm.view.multiple} 条；重复键自动更新`
-                        : '再次提交将更新原记录'
-                    "
-                  />
-                  <Form layout="vertical" class="plugin-user-form-fields">
-                    <Form.Item
-                      v-for="field in pluginUserFormFields"
-                      :key="field.name"
-                      :label="String(field.schema.title || field.name)"
-                      :validate-status="
-                        pluginUserForm.errors[field.name] ? 'error' : ''
-                      "
-                      :help="
-                        pluginUserForm.errors[field.name] ||
-                        String(field.schema.description || '')
-                      "
-                      :required="!!field.schema.required"
-                    >
-                      <Switch
-                        v-if="field.schema.type === 'boolean'"
-                        v-model:checked="pluginUserForm.values[field.name]"
-                      />
-                      <Select
-                        v-else-if="Array.isArray(field.schema.enum)"
-                        v-model:value="pluginUserForm.values[field.name]"
-                        :options="userFormSelectOptions(field.schema)"
-                      />
-                      <InputNumber
-                        v-else-if="
-                          field.schema.type === 'number' ||
-                          field.schema.type === 'integer'
-                        "
-                        v-model:value="pluginUserForm.values[field.name]"
-                        style="width: 100%"
-                      />
-                      <Input
-                        v-else
-                        v-model:value="pluginUserForm.values[field.name]"
-                        :placeholder="String(field.schema.title || field.name)"
-                      />
-                    </Form.Item>
-                  </Form>
-                  <div
-                    v-if="pluginUserForm.view.records.length"
-                    class="plugin-user-records"
-                  >
-                    <Typography.Text strong>已提交参数</Typography.Text>
-                    <article
-                      v-for="(record, index) in pluginUserForm.view.records"
-                      :key="record.id"
-                      class="plugin-user-record"
-                    >
-                      <div>
-                        <Typography.Text>记录 {{ index + 1 }}</Typography.Text>
-                        <Typography.Text class="muted">{{
-                          Object.entries(record.values)
-                            .map(([key, value]) => `${key}=${value}`)
-                            .join("；")
-                        }}</Typography.Text>
-                      </div>
-                      <Space>
-                        <Button
-                          size="small"
-                          @click="editPluginUserRecord(record)"
-                          >编辑</Button
-                        >
-                        <Button
-                          size="small"
-                          danger
-                          @click="deletePluginUserRecord(record)"
-                          >删除</Button
-                        >
-                      </Space>
-                    </article>
-                  </div>
-                  <Button
-                    v-if="pluginUserForm.recordID"
-                    block
-                    @click="resetPluginUserForm"
-                    >改为新增记录</Button
-                  >
-                </div>
-              </Spin>
-            </Modal>
 
             <Card class="user-panel" :bordered="false">
               <template #title>
@@ -968,132 +577,6 @@ onMounted(() => {
   border-radius: 8px;
 }
 
-.user-plugin-panel {
-  margin-bottom: 16px;
-}
-
-.user-plugin-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.user-plugin-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.user-plugin-auth-tip {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 10px 12px;
-  margin: -2px 0 14px;
-  border: 1px solid #bbf7d0;
-  border-radius: 8px;
-  background: #f0fdf4;
-  color: #166534;
-  font-size: 13px;
-}
-
-.user-plugin-card {
-  display: flex;
-  gap: 14px;
-  min-width: 0;
-  padding: 16px;
-  border: 1px solid #e7ebf0;
-  border-radius: 10px;
-  background: #ffffff;
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
-}
-
-.user-plugin-card-clickable {
-  cursor: pointer;
-}
-
-.user-plugin-card-clickable:hover {
-  border-color: #36cfc9;
-  box-shadow: 0 8px 24px rgba(19, 194, 194, 0.12);
-}
-
-.plugin-user-form-modal,
-.plugin-user-form-fields,
-.plugin-user-records {
-  display: grid;
-  gap: 14px;
-}
-
-.plugin-user-form-fields {
-  margin-top: 16px;
-}
-
-.plugin-user-record {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px;
-  border: 1px solid #edf0f5;
-  border-radius: 8px;
-}
-
-.plugin-user-record > div:first-child {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.user-plugin-card:hover {
-  border-color: #86d5ad;
-  box-shadow: 0 6px 18px rgb(22 163 74 / 9%);
-}
-
-.user-plugin-icon {
-  display: grid;
-  flex: 0 0 46px;
-  place-items: center;
-  width: 46px;
-  height: 46px;
-  overflow: hidden;
-  border-radius: 12px;
-  background: #ecfdf3;
-  color: #15803d;
-  font-size: 20px;
-  font-weight: 700;
-}
-
-.user-plugin-icon img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.user-plugin-main {
-  min-width: 0;
-  flex: 1;
-}
-
-.user-plugin-title {
-  display: block;
-  margin-bottom: 5px;
-  font-size: 16px;
-}
-
-.user-plugin-desc {
-  min-height: 44px;
-  margin-bottom: 10px !important;
-  color: #64748b;
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
 .user-login-card {
   max-width: 420px;
   margin: 80px auto 0;
@@ -1135,8 +618,7 @@ onMounted(() => {
 }
 
 @media (max-width: 920px) {
-  .user-summary,
-  .user-plugin-grid {
+  .user-summary {
     grid-template-columns: 1fr;
   }
 }
@@ -1159,11 +641,6 @@ onMounted(() => {
       max(12px, env(safe-area-inset-left, 0px));
   }
 
-  .user-plugin-toolbar {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
   .user-panel :deep(.ant-card-body),
   .user-summary :deep(.ant-card-body),
   .user-login-card :deep(.ant-card-body) {
@@ -1181,17 +658,6 @@ onMounted(() => {
     white-space: nowrap;
   }
 
-  .user-plugin-card {
-    padding: 12px;
-  }
-
-  .plugin-user-record {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .plugin-user-record :deep(.ant-space),
-  .plugin-user-record :deep(.ant-btn),
   .user-topbar :deep(.ant-btn),
   .user-content :deep(.ant-btn) {
     min-height: 44px;

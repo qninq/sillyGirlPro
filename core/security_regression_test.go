@@ -158,26 +158,3 @@ func TestStringsRandomBoundsAndAlphabet(t *testing.T) {
 		t.Fatalf("unexpected random output %q", got)
 	}
 }
-
-func TestDecodePluginUserFormJSONRejectsOversizeAndTrailingValue(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	for _, body := range []string{
-		`{"uuid":"one"} {"uuid":"two"}`,
-		`{"value":"` + strings.Repeat("x", maxPluginUserFormBodyBytes) + `"}`,
-	} {
-		ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
-		ctx.Request = httptest.NewRequest("POST", "/api/user/plugins/fixture/form-records", strings.NewReader(body))
-		var payload map[string]interface{}
-		if err := decodePluginUserFormJSON(ctx, &payload); err == nil {
-			t.Fatalf("invalid request body was accepted")
-		}
-	}
-}
-
-func TestPluginUserRecordKeyHasNoSeparatorCollision(t *testing.T) {
-	a := pluginUserRecordKey(map[string]interface{}{"a": "x\x1fy", "b": "z"}, []string{"a", "b"})
-	b := pluginUserRecordKey(map[string]interface{}{"a": "x", "b": "y\x1fz"}, []string{"a", "b"})
-	if a == b {
-		t.Fatal("keyBy values produced a collision")
-	}
-}

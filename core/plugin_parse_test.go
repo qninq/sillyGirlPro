@@ -139,24 +139,3 @@ func TestPluginParseDetectsV2FormUsage(t *testing.T) {
 		})
 	}
 }
-
-func TestPluginParseDetectsUserFormUsage(t *testing.T) {
-	tests := []struct {
-		name   string
-		script string
-		want   bool
-	}{
-		{name: "javascript", script: `const value = new user.Form({ phone: user.Form.string() })`, want: true},
-		{name: "python", script: `value = user.Form({"phone": user.Form.string()})`, want: true},
-		{name: "lowercase user form removed", script: `new user.form({ phone: user.form.string() })`, want: false},
-		{name: "plugin form only", script: `new plugin.Form({ token: plugin.Form.string() })`, want: false},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			fn, _ := pluginParse(test.script, "demo")
-			if fn.HasUserForm != test.want {
-				t.Fatalf("HasUserForm = %v; want %v", fn.HasUserForm, test.want)
-			}
-		})
-	}
-}

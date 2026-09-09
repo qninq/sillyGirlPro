@@ -1,3 +1,17 @@
+## v1.2.4 - 2026-09-09
+
+### 移除「开放插件」功能
+
+本次更新**完整移除管理员向普通用户开放插件的功能链路**，插件不再提供面向普通用户的表单与授权能力。普通用户账号体系（注册/登录、QQ/Telegram 绑定、用户公告、管理后台用户管理）保留不变。
+
+- **管理后台**：删除 `POST /api/admin/plugins/:uuid/access` 开放开关接口；插件设置弹窗移除「是否开放为普通用户」区块。
+- **用户端**：删除 `GET /api/public/plugins` 与 `/api/user/plugins*` 全部接口（插件列表、用户表单、提交/更新/删除记录）；Home 页移除「开放插件」卡片；用户中心移除「开放插件」面板与用户表单弹窗，保留账号信息、绑定与公告。
+- **插件运行时**：`proto3/sillygirl.js`、`sillygirl.py`、`sillygirl.d.ts` 删除 `user.Form`、`user.getUserList()`、`user.getUser()` 客户端 API 及 `SillyGirlUser` 相关类型；配置预加载运行时不再检测 `user.Form` 调用（`HasUserForm` 字段删除），`.test()` 远程验证器沙箱一并移除。
+- **数据结构**：`common.Function` 删除 `Open`、`HasUserForm` 字段；插件市场列表不再返回 `open`、`has_user_form`；`__plugin_users__` 运行时桶及 `plugin_user_form_schemas`、`plugin_user_form_records`、`plugin_open` 存储桶不再被读写。
+- **文档**：插件编写指南删除「user.Form 普通用户表单」与「普通用户列表」章节；API 文档删除对应接口；插件编写 skill 同步清理。
+
+> 已有的 `plugin_open`、`plugin_user_form_schemas`、`plugin_user_form_records` 桶数据将不再被读取；如需清理可手动删除，保留也不影响运行。使用 `user.Form` 的旧插件需改用 `plugin.Form` 管理员配置表单。
+
 ## v1.2.3 - 2026-09-09
 
 ### 移除 SmallCat 面板功能

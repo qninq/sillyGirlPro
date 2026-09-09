@@ -22,7 +22,6 @@ type Function struct {
 	Desc           string                   `json:"desc"`
 	Rule           string                   `json:"rule,omitempty"`
 	Public         bool                     `json:"public"`
-	Open           bool                     `json:"open"`
 	Icon           string                   `json:"icon"`
 	Version        string                   `json:"version"`
 	CurrentVersion string                   `json:"current_version,omitempty"`
@@ -40,7 +39,6 @@ type Function struct {
 	Running                   bool        `json:"running"`
 	Downloads                 int         `json:"downloads"`
 	HasForm                   bool        `json:"has_form"`
-	HasUserForm               bool        `json:"has_user_form"`
 	ConfigRegistered          bool        `json:"config_registered"`
 	Carry                     bool        `json:"carry"`
 	Messages                  interface{} `json:"messages"`

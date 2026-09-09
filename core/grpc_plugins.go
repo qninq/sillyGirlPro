@@ -190,7 +190,7 @@ func addNodePluginLocked(path, name, class string) error {
 	f.Dependencies = parseDeclaredDependencies(script, class)
 	f.ModuleDependencies = parseDeclaredModuleDependencies(script, class)
 	f.Path = path
-	if f.HasForm || f.HasUserForm {
+	if f.HasForm {
 		var err error
 		switch class {
 		case NODE:
@@ -497,25 +497,6 @@ declare class Bucket {
     watch(key: string, handle: (old: any, now: any, key: string) => StorageModifier | void): void;
     getName(): Promise<string>;
 }
-export interface SillyGirlUserBindings {
-    qq: string;
-    telegram: string;
-}
-export interface SillyGirlUser {
-    id: string;
-    username: string;
-    nickname: string;
-    disabled: boolean;
-    authorized: boolean;
-    bindings: SillyGirlUserBindings;
-    records?: SillyGirlUserFormRecord[];
-}
-export interface SillyGirlUserFormRecord {
-    id: string;
-    values: Record<string, any>;
-    created_at: number;
-    updated_at: number;
-}
 interface SillyGirlSchemaNode {
     __schemaNode: boolean;
     schema: Record<string, any>;
@@ -525,7 +506,6 @@ interface SillyGirlSchemaNode {
     options(value: any[] | Record<string, any>): SillyGirlSchemaNode;
     required(value: string[] | boolean): SillyGirlSchemaNode;
     match(value: string | RegExp): SillyGirlSchemaNode;
-    test(callback: (value: any, context: SillyGirlUserFormTestContext) => boolean | string | Promise<boolean | string>): SillyGirlSchemaNode;
     err(value: string): SillyGirlSchemaNode;
     format(value: string): SillyGirlSchemaNode;
     min(value: number): SillyGirlSchemaNode;
@@ -550,7 +530,6 @@ declare class SchemaNode implements SillyGirlSchemaNode {
     options(value: any[] | Record<string, any>): SchemaNode;
     required(value?: string[] | boolean): this;
     match(value: string | RegExp): this;
-    test(callback: (value: any, context: SillyGirlUserFormTestContext) => boolean | string | Promise<boolean | string>): this;
     err(value: string): this;
     format(value: string): this;
     min(value: number): this;
@@ -592,48 +571,8 @@ interface FormFactory {
     select: typeof formHelpers.select;
     defaults(fields: Record<string, SillyGirlSchemaNode>): any;
 }
-interface SillyGirlUserFormTestContext {
-    values: Record<string, any>;
-    user: {
-        id: string;
-        username: string;
-        nickname: string;
-        bindings: Record<string, any>;
-    };
-    plugin: {
-        id: string;
-        title: string;
-    };
-    config: Record<string, any>;
-}
-declare class UserFormInstance {
-    definition: {
-        schema: Record<string, any>;
-        multiple: number;
-        key_by: string[];
-        validators: Record<string, any[]>;
-    };
-    constructor(fields: Record<string, SillyGirlSchemaNode>);
-    multiple(limit: number): this;
-    keyBy(fields: string[] | string): this;
-    private register;
-}
-interface UserFormFactory extends FormFactory {
-    (fields: Record<string, SillyGirlSchemaNode>): UserFormInstance;
-    new (fields: Record<string, SillyGirlSchemaNode>): UserFormInstance;
-}
 declare const plugin: {
     Form: FormFactory;
-};
-declare const user: {
-    Form: UserFormFactory;
-    getUserList(options?: {
-        withRecords?: boolean;
-    }): Promise<SillyGirlUser[]>;
-    getUser(selector: string | {
-        id?: string;
-        name?: string;
-    }): Promise<SillyGirlUser | undefined>;
 };
 type ContainerKind = "qinglong" | "daidai";
 interface ContainerPanelInfo {
@@ -812,7 +751,7 @@ declare let console: {
     debug(...args: any[]): void;
 };
 declare const container: ContainerApi;
-export { Adapter, Bucket, container, plugin, user, sender, utils, console, };`
+export { Adapter, Bucket, container, plugin, sender, utils, console, };`
 
 func defaultScript(title, name string) string {
 	name = safePluginDirName(firstNonEmpty(name, title))
@@ -829,7 +768,6 @@ const {
   Bucket,
   container,
 	plugin,
-	user,
   utils: { buildCQTag, image, video, sleep, version, restart, update },
 } = require("sillygirl");
 `

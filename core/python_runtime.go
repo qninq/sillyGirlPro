@@ -116,7 +116,7 @@ def _normalize_form_field(value, path="field"):
 
 def _normalize_config_schema(fields):
     if not isinstance(fields, dict) or _is_schema_node(fields):
-        raise TypeError('plugin.Form/user.Form only accepts an object of field helpers')
+        raise TypeError('plugin.Form only accepts an object of field helpers')
     return {
         "type": "object",
         "properties": {
@@ -263,20 +263,6 @@ class _PluginForm:
     def defaults(self, fields): return _schema_defaults(_normalize_config_schema(fields))
 
 
-class _UserForm(_PluginForm):
-    def __call__(self, schema):
-        validators = {str(key): value.validators for key, value in schema.items() if _is_schema_node(value) and value.validators}
-        self.definition = {"schema": _normalize_config_schema(schema), "multiple": 1, "key_by": [], "validators": validators}
-        _exported["user"] = self.definition
-        return self
-    def multiple(self, limit):
-        self.definition["multiple"] = max(1, int(limit or 1))
-        return self
-    def keyBy(self, fields):
-        self.definition["key_by"] = [str(item) for item in (fields if isinstance(fields, (list, tuple)) else [fields])]
-        return self
-
-
 class _Dummy:
     def __init__(self, *_args, **_kwargs): pass
     def __getattr__(self, _name): return self
@@ -289,16 +275,14 @@ class _Dummy:
         return _done().__await__()
 
 
-_exported = {"plugin": None, "user": None}
+_exported = {"plugin": None}
 _plugin_form = _PluginForm()
-_user_form = _UserForm()
 _dummy = _Dummy()
 _sillygirl = types.ModuleType("sillygirl")
 _sillygirl.Adapter = _Dummy
 _sillygirl.Bucket = _Dummy
 _sillygirl.Sender = _Dummy
 _sillygirl.plugin = types.SimpleNamespace(Form=_plugin_form)
-_sillygirl.user = types.SimpleNamespace(Form=_user_form, getUserList=_dummy, getUser=_dummy)
 _sillygirl.sender = _dummy
 _sillygirl.container = _dummy
 _sillygirl.utils = _dummy

@@ -1895,7 +1895,7 @@ func refreshPluginConfigSchemas(pluginName, runtime string) error {
 			continue
 		}
 		f, _ := pluginParse(string(data), nameUuid(plugin.Name))
-		if f == nil || (!f.HasForm && !f.HasUserForm) {
+		if f == nil || !f.HasForm {
 			continue
 		}
 		var registerErr error

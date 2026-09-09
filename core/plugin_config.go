@@ -29,16 +29,6 @@ func init() {
 		uuid := ctx.Param("uuid")
 		record := getPluginConfigRecord(uuid)
 		if record == nil {
-			// The settings dialog also owns the ordinary-user access switch.
-			// Open plugins without an administrator form still need to open this
-			// dialog, so the combined resource deliberately returns a nil config.
-			if ctx.Query("include") == "panels" {
-				plugin := installedPluginByUUID(strings.TrimSpace(uuid))
-				if plugin != nil && plugin.HasUserForm {
-					ApiOK(ctx, gin.H{"config": nil, "panels": getAdminPanels(false)})
-					return
-				}
-			}
 			ApiNotFound(ctx, "插件配置不存在")
 			return
 		}
@@ -80,8 +70,8 @@ func deletePluginSettings(ctx *gin.Context) {
 		ApiUnprocessable(ctx, "缺少插件 UUID")
 		return
 	}
-	// Deletion is intentionally idempotent. A plugin can expose only a user form
-	// or have no saved values, so the administrator config record may not exist.
+	// Deletion is intentionally idempotent. A plugin may have no saved values,
+	// so the administrator config record may not exist.
 	deletePluginConfig(uuid, ctx.Query("delete_schema") == "true")
 	ApiOK(ctx, nil)
 }
@@ -94,8 +84,6 @@ func deletePluginConfig(uuid string, deleteSchema bool) {
 	_, _, _ = SetBucketKeyValue2(pluginConfigValues, uuid, nil)
 	if deleteSchema {
 		_, _, _ = SetBucketKeyValue2(pluginConfigSchemas, uuid, nil)
-		_, _, _ = SetBucketKeyValue2(pluginUserFormSchemas, uuid, nil)
-		_ = deletePluginUserRecordsForPlugin(uuid)
 	}
 }
 

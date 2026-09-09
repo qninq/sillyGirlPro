@@ -154,48 +154,6 @@ await utils.restart()
 update_result = await utils.update({"restart": True})
 ```
 
-### 普通用户列表
-
-`user.getUserList()` 提供普通用户及当前插件的授权和绑定状态。`authorized` 表示当前插件是否对用户开放，运行时会从当前插件上下文判定，不接受插件 UUID 参数。
-
-```js
-const { user } = require("sillygirl");
-
-const users = await user.getUserList();
-const qqAccounts = users
-  .filter((user) => !user.disabled && user.authorized)
-  .map((user) => user.bindings.qq);
-```
-
-```python
-from sillygirl import user
-
-users = await user.getUserList()
-qq_accounts = [
-    user["bindings"]["qq"]
-    for user in users
-    if not user["disabled"] and user["authorized"]
-]
-```
-
-`user.getUserList()` 的每个用户包含：
-
-```json
-{
-  "id": "USER_ID",
-  "username": "ACCOUNT",
-  "nickname": "昵称",
-  "disabled": false,
-  "authorized": true,
-  "bindings": {
-    "qq": "10001",
-    "telegram": "20002"
-  }
-}
-```
-
-未开放或已禁用用户仍会出现在列表中用于判断状态，但插件未开放、`status=false` 或插件没有用户表单时，所有用户的 `authorized` 都为 `false`。
-
 ### Bucket 存储
 
 ```python
@@ -712,75 +670,6 @@ async def main():
     values = await config.get()
     print(values)
 ```
-
-### user.Form 普通用户表单
-
-`user.Form` 单独定义 Home 普通用户提交的参数。数据按“用户 + 当前插件”隔离，以明文 JSON 存入 SillyGirl 存储桶，不执行加密或自动裁剪。
-
-```js
-const { user } = require("sillygirl");
-
-new user.Form({
-  phone: user.Form.string()
-    .title("手机号")
-    .required().err("请输入手机号")
-    .match(/^1[3-9]\d{9}$/).err("手机号格式错误"),
-  remark: user.Form.string()
-    .title("备注")
-    .match(/^.{0,20}$/).err("备注最多20个字符")
-    .default(""),
-}).multiple(3).keyBy(["phone"]);
-
-// test() 在服务端保存前运行，支持 async 和远程 API 校验。
-new user.Form({
-  token: user.Form.string()
-    .required().err("请输入 Token")
-    .test(async (value, ctx) => {
-      const response = await fetch("https://api.example.com/verify", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ token: value, user: ctx.user.id }),
-      });
-      if (!response.ok) return "认证接口请求失败";
-      const result = await response.json();
-      return result.valid || "Token 未通过认证";
-    }).err("Token 验证失败"),
-});
-
-const users = await user.getUserList({ withRecords: true });
-const current = await user.getUser({ name: "ACCOUNT" });
-```
-
-```python
-from sillygirl import user
-
-async def verify_token(value, ctx):
-    import urllib.request
-    # 可在这里请求远程 API；True 通过，False/字符串不通过。
-    return True if value == "demo" else "Token 未通过认证"
-
-user.Form({
-    "phone": user.Form.string()
-        .title("手机号")
-        .required().err("请输入手机号")
-        .match(r"^1[3-9]\d{9}$").err("手机号格式错误"),
-    "token": user.Form.string()
-        .test(verify_token).err("Token 验证失败"),
-}).multiple(3).keyBy(["phone"])
-
-users = await user.getUserList({"withRecords": True})
-current = await user.getUser({"name": "ACCOUNT"})
-```
-
-- `.multiple(limit)`：允许每个普通用户保存多条记录，默认 `1`。
-- `.keyBy(fields)`：相同键再次提交时更新原记录，避免重复；支持一个或多个字段。
-- `user.getUserList()`：列出用户；传 `{ withRecords: true }` 时包含当前插件的 `records`。
-- `user.getUser(idOrName)` / `user.getUser({ id, name })`：按 ID、用户名或昵称查询单个用户；重名时抛出 `USER_AMBIGUOUS`。
-- `required/match/err` 同时在前端和服务端执行，服务端结果为最终判定。
-- `.test(callback)` 只在服务端保存前执行，可传同步或异步函数；回调参数为 `(value, ctx)`。
-- `ctx` 包含 `values`（本次完整表单）、`user`（当前用户及绑定）、`plugin` 和 `config`（当前插件配置）。
-- 回调返回 `true` 表示通过；返回 `false` 使用紧跟的 `.err(...)`；返回非空字符串时直接作为错误；抛出异常会返回远程验证异常。总执行超时为 10 秒。
-- 校验函数会脱离插件主流程单独执行，因此应写成自包含函数，只使用参数、运行时全局 API（如 Node `fetch`）或函数内部 `import`；不要依赖外层闭包变量。Python 推荐使用具名 `def/async def`。
 
 ### container 容器入口
 

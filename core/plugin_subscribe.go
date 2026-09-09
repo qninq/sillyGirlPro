@@ -511,7 +511,6 @@ func handlePluginMarketPlugins(ctx *gin.Context) {
 		for i := range rr.Data {
 			rr.Data[i].Icon = pluginIconOrDefault(rr.Data[i].Icon)
 			rr.Data[i].HasForm = false
-			rr.Data[i].HasUserForm = false
 			rr.Data[i].ConfigRegistered = getPluginConfigRecord(rr.Data[i].UUID) != nil
 			rr.Data[i].Running = false
 			for j := range fc {
@@ -538,13 +537,11 @@ func handlePluginMarketPlugins(ctx *gin.Context) {
 					if fc[j].HasForm {
 						rr.Data[i].HasForm = true
 					}
-					rr.Data[i].HasUserForm = fc[j].HasUserForm
 					if fc[j].Running {
 						rr.Data[i].Running = true
 					}
 					rr.Data[i].Debug = plugin_debug.GetString(rr.Data[i].UUID) == "b:true"
 					rr.Data[i].Status = pluginStatusValue(pluginExecutionEnabled(fc[j]))
-					rr.Data[i].Open = fc[j].Open && fc[j].HasUserForm
 				}
 			}
 			rr.Data[i].Desc = parseReply2(rr.Data[i].Desc)

@@ -370,7 +370,7 @@ func TestEveryProtectedInterfaceRejectsMissingAndMalformedHeaderJWT(t *testing.T
 			assertRESTEnvelope(t, response, false)
 		}
 	}
-	if checkedAdmin < 65 || checkedUser < 9 {
+	if checkedAdmin < 65 || checkedUser < 4 {
 		t.Fatalf("auth interface matrix too small: admin=%d user=%d", checkedAdmin, checkedUser)
 	}
 	t.Logf("逐项验证完成：admin=%d 个接口，user=%d 个接口；均拒绝缺失及错误的 token 请求头 JWT", checkedAdmin, checkedUser)

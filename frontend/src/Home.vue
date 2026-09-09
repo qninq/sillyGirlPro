@@ -36,22 +36,9 @@ type AuthPayload = {
   user: PublicUser;
 };
 
-type OpenPlugin = {
-  id: string;
-  title: string;
-  desc?: string;
-  icon?: string;
-  version?: string;
-  author?: string;
-  class?: string;
-  rule?: string;
-  dependencies?: string[];
-};
-
 const authMode = ref<'login' | 'register'>('login');
 const loading = ref(false);
 const currentUser = ref<PublicUser | null>(null);
-const openPlugins = ref<OpenPlugin[]>([]);
 const userAuthTokenKey = 'sillygirl_user_jwt';
 const loginForm = reactive({
   username: '',
@@ -67,23 +54,6 @@ const userInitial = computed(() => {
   const name = currentUser.value?.nickname || currentUser.value?.username || 'U';
   return name.slice(0, 1).toUpperCase();
 });
-
-function pluginIconIsImage(plugin: OpenPlugin) {
-  const icon = String(plugin.icon || '').trim();
-  return /^https?:\/\//i.test(icon) || icon.startsWith('/') || icon.startsWith('data:image/');
-}
-
-function pluginInitial(plugin: OpenPlugin) {
-  const text = String(plugin.title || plugin.id || 'P').trim();
-  return (text ? text.slice(0, 1) : 'P').toUpperCase();
-}
-
-function pluginClassTags(plugin: OpenPlugin) {
-  return String(plugin.class || '')
-    .split(/[,，\s]+/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
 
 async function requestJSON<T>(url: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers);
@@ -189,17 +159,8 @@ async function loadCurrentUser() {
   }
 }
 
-async function loadOpenPlugins() {
-  try {
-    openPlugins.value = await requestJSON<OpenPlugin[]>('/api/public/plugins');
-  } catch (_) {
-    openPlugins.value = [];
-  }
-}
-
 onMounted(() => {
   loadCurrentUser();
-  loadOpenPlugins();
 });
 </script>
 
@@ -230,38 +191,6 @@ onMounted(() => {
                 <Space wrap>
                   <Button type="primary" href="#account">登录或注册</Button>
                 </Space>
-              </Card>
-
-              <Card class="home-panel" :bordered="false">
-                <div class="home-toolbar">
-                  <Space size="small">
-                    <Plug :size="16" />
-                    <Typography.Text strong>开放插件</Typography.Text>
-                    <Typography.Text class="muted">由管理员开放的用户服务</Typography.Text>
-                  </Space>
-                  <Tag color="green">{{ openPlugins.length }} 个</Tag>
-                </div>
-                <div v-if="openPlugins.length" class="home-plugin-grid">
-                  <article v-for="plugin in openPlugins" :key="plugin.id" class="home-plugin-card">
-                    <div class="home-plugin-icon" aria-hidden="true">
-                      <img v-if="pluginIconIsImage(plugin)" :src="plugin.icon" alt="" />
-                      <span v-else>{{ pluginInitial(plugin) }}</span>
-                    </div>
-                    <div class="home-plugin-main">
-                      <Typography.Text strong class="home-plugin-title">{{ plugin.title || plugin.id }}</Typography.Text>
-                      <Typography.Paragraph class="home-plugin-desc">
-                        {{ plugin.desc || '该插件暂未填写介绍。' }}
-                      </Typography.Paragraph>
-                      <Space wrap size="small">
-                        <Tag v-if="plugin.version">{{ plugin.version }}</Tag>
-                        <Tag v-for="klass in pluginClassTags(plugin)" :key="klass" color="cyan">{{ klass }}</Tag>
-                        <Tag v-if="plugin.author" color="blue">{{ plugin.author }}</Tag>
-                        <Tag v-if="plugin.dependencies?.length" color="green">依赖 {{ plugin.dependencies.join(' / ') }}</Tag>
-                      </Space>
-                    </div>
-                  </article>
-                </div>
-                <Typography.Text v-else class="muted">暂时没有开放插件。</Typography.Text>
               </Card>
 
               <Card class="home-panel" :bordered="false">
@@ -481,62 +410,6 @@ onMounted(() => {
   margin-top: 18px;
 }
 
-.home-plugin-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.home-plugin-card {
-  display: grid;
-  grid-template-columns: 48px minmax(0, 1fr);
-  gap: 12px;
-  padding: 14px;
-  background: #f8fafc;
-  border: 1px solid #e6eaf0;
-  border-radius: 8px;
-}
-
-.home-plugin-icon {
-  display: grid;
-  place-items: center;
-  width: 48px;
-  height: 48px;
-  overflow: hidden;
-  color: #166534;
-  background: #dcfce7;
-  border: 1px solid #86efac;
-  border-radius: 10px;
-  font-size: 20px;
-  font-weight: 700;
-}
-
-.home-plugin-icon img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.home-plugin-main {
-  min-width: 0;
-}
-
-.home-plugin-title {
-  display: block;
-  margin-bottom: 5px;
-  font-size: 15px;
-}
-
-.home-plugin-desc {
-  display: -webkit-box;
-  margin-bottom: 10px !important;
-  overflow: hidden;
-  color: #667085;
-  line-height: 1.6;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
 .home-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -683,10 +556,6 @@ onMounted(() => {
 
   .home-hero {
     min-height: auto;
-  }
-
-  .home-plugin-grid {
-    grid-template-columns: 1fr;
   }
 
   .home-hero :deep(.ant-card-body),

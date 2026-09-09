@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.console = exports.utils = exports.sender = exports.user = exports.plugin = exports.container = exports.Bucket = exports.Adapter = void 0;
+exports.console = exports.utils = exports.sender = exports.plugin = exports.container = exports.Bucket = exports.Adapter = void 0;
 const srpc_1 = require("./srpc");
 const grpc_1 = __importStar(require("@grpc/grpc-js"));
 const util_1 = require("util");
@@ -555,7 +555,7 @@ function isSchemaNode(value) {
 function normalizeFormField(value, path = "field") {
     if (isSchemaNode(value))
         return value.schema;
-    throw new Error(`Form schema ${path} must use plugin.Form/user.Form field helpers`);
+    throw new Error(`Form schema ${path} must use plugin.Form field helpers`);
 }
 function normalizeConfigSchema(fields) {
     if (!fields || typeof fields !== "object" || Array.isArray(fields) || isSchemaNode(fields)) {
@@ -733,47 +733,8 @@ class PluginConfigFormInstance {
 const pluginForm = Object.assign(function (fields) {
     return new PluginConfigFormInstance(fields);
 }, formHelpers, { defaults: (fields) => pluginConfigDefaults(normalizeConfigSchema(fields)) });
-class UserFormInstance {
-    definition;
-    constructor(fields) {
-        const validators = {};
-        for (const key of Object.keys(fields)) {
-            const node = fields[key];
-            if (node.validators?.length)
-                validators[key] = node.validators;
-        }
-        this.definition = { schema: normalizeConfigSchema(fields), multiple: 1, key_by: [], validators };
-        void this.register();
-    }
-    multiple(limit) { this.definition.multiple = Math.max(1, Math.trunc(Number(limit) || 1)); void this.register(); return this; }
-    keyBy(fields) { this.definition.key_by = (Array.isArray(fields) ? fields : [fields]).map(String); void this.register(); return this; }
-    async register() {
-        if (plugin_id)
-            await new Bucket("plugin_user_form_schemas").set(plugin_id, this.definition);
-    }
-}
-const userForm = Object.assign(function (fields) { return new UserFormInstance(fields); }, formHelpers);
 const plugin = { Form: pluginForm };
 exports.plugin = plugin;
-const user = {
-    Form: userForm,
-    async getUserList(options = {}) {
-        const rows = await new Bucket("__plugin_users__").get("list", []);
-        if (options.withRecords)
-            return rows;
-        return (Array.isArray(rows) ? rows : []).map((item) => { const copy = { ...item }; delete copy.records; return copy; });
-    },
-    async getUser(selector) {
-        const rows = await this.getUserList({ withRecords: true });
-        const id = typeof selector === "object" ? String(selector.id || "") : String(selector || "");
-        const name = typeof selector === "object" ? String(selector.name || "") : String(selector || "");
-        const matches = rows.filter(item => (id && item.id === id) || (name && (item.username === name || item.nickname === name)));
-        if (matches.length > 1)
-            throw new Error("USER_AMBIGUOUS");
-        return matches[0];
-    },
-};
-exports.user = user;
 async function readRuntimePanels(key) {
     const raw = await new Bucket("sillyGirl").get(key, []);
     if (Array.isArray(raw))

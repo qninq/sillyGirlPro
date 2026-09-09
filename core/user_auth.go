@@ -403,11 +403,7 @@ func deleteNormalUser(username string) error {
 	if err := validateNormalUsername(username); err != nil {
 		return err
 	}
-	user, err := loadNormalUser(username)
-	if err != nil {
-		return err
-	}
-	if err := deletePluginUserRecordsForUser(user.ID); err != nil {
+	if _, err := loadNormalUser(username); err != nil {
 		return err
 	}
 	if _, _, err := userBucket.Set(normalUserBindingsStorageKey(username), ""); err != nil {

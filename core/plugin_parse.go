@@ -16,7 +16,6 @@ var (
 	multiSpacePattern        = regexp.MustCompile("\x20{2,}")
 	classTokenPattern        = regexp.MustCompile(`\S+`)
 	pluginFormCallPattern    = regexp.MustCompile(`\b(?:new\s+)?plugin\s*\.\s*Form\s*\(`)
-	userFormCallPattern      = regexp.MustCompile(`\b(?:new\s+)?user\s*\.\s*Form\s*\(`)
 )
 
 func pluginParse(script string, uuid string) (*common.Function, []func()) {
@@ -37,7 +36,6 @@ func pluginParse(script string, uuid string) (*common.Function, []func()) {
 	var origin = "自定义"
 	var crons = map[string]string{}
 	var hasForm bool
-	var hasUserForm bool
 	var carry bool
 	var classes = []string{}
 	ks := map[string]bool{}
@@ -140,7 +138,6 @@ func pluginParse(script string, uuid string) (*common.Function, []func()) {
 		}
 	}
 	hasForm = pluginFormCallPattern.MatchString(script)
-	hasUserForm = userFormCallPattern.MatchString(script)
 	return &common.Function{
 		Rules:       rules,
 		Admin:       admin,
@@ -149,7 +146,6 @@ func pluginParse(script string, uuid string) (*common.Function, []func()) {
 		UUID:        uuid,
 		Title:       title,
 		Public:      public,
-		Open:        plugin_open.GetBool(uuid),
 		Desc:        desc,
 		Icon:        pluginIconOrDefault(icon),
 		Version:     version,
@@ -162,10 +158,21 @@ func pluginParse(script string, uuid string) (*common.Function, []func()) {
 		Cron:        crons,
 		Running:     statusEnabled && (onStart || web),
 		HasForm:     hasForm,
-		HasUserForm: hasUserForm,
 		Carry:       carry,
 		Classes:     classes,
 	}, cbs
+}
+
+func installedPluginByUUID(uuid string) *common.Function {
+	if uuid == "" {
+		return nil
+	}
+	for _, plugin := range installedPluginSnapshot() {
+		if plugin != nil && plugin.UUID == uuid && (plugin.Type == NODE || plugin.Type == PYTHON) {
+			return plugin
+		}
+	}
+	return nil
 }
 
 func pluginMetaEntries(script string) [][]string {
