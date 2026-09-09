@@ -52,6 +52,9 @@ const adminViews = {
   plugins: defineAsyncComponent(
     () => import("./components/admin/views/PluginsView.vue"),
   ),
+  scripts: defineAsyncComponent(
+    () => import("./components/admin/views/ScriptsView.vue"),
+  ),
   logs: defineAsyncComponent(
     () => import("./components/admin/views/LogsView.vue"),
   ),

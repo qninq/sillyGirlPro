@@ -22,6 +22,7 @@ func Init() {
 	// them through the legacy exact-string NoRoute dispatcher.
 	initWebPluginList()
 	initMarketPluginEditor()
+	initAppScripts()
 	initLogEndpoint()
 	initWeb()
 	initCarry()

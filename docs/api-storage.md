@@ -102,6 +102,10 @@ Base URL: `http://host:port/api`
 | `GET` | `/api/admin/local-plugins/:id/dependents` |
 | `POST` | `/api/admin/local-plugins/:id/status` |
 | `POST` | `/api/admin/local-plugins/:id/deletions` |
+| `GET`, `POST` | `/api/admin/app-scripts` |
+| `GET`, `POST` | `/api/admin/app-scripts/:id` |
+| `POST` | `/api/admin/app-scripts/:id/deletions` |
+| `GET` | `/api/admin/app-scripts/:id/executions` |
 | `GET` | `/api/admin/dependencies?runtime=:runtime&plugin=:plugin` |
 | `POST` | `/api/admin/dependencies` |
 | `POST` | `/api/admin/dependency-deletions` |
@@ -143,6 +147,14 @@ Base URL: `http://host:port/api`
 
 - `POST /api/admin/local-plugins/:id/status` 请求体为 `{ "status": true|false }`，只修改源码顶部 `status` 注释并重载插件；`module=true` 的依赖模块没有独立运行开关。
 - `GET /api/admin/local-plugins/:id/dependents` 返回同发布者目录内通过 `depe` 引用该模块的插件列表，删除或卸载被引用模块会返回冲突。
+
+应用脚本接口面向管理后台「插件开发」页面，管理本地应用脚本（消息响应脚本与启动任务/常驻服务/定时任务等独立脚本，以及全部 `.ts`/`.go` 占位文件），页面按语言分类展示全部脚本类型：
+
+- `GET /api/admin/app-scripts` 返回全部应用脚本及语言分类（ES5、Node.js、TypeScript、Python、Golang、Adapter JS、Adapter Python、Adapter Go）；仅 JS/Python 系分类可执行，TypeScript/Golang/Adapter Go 为不可执行占位。
+- `POST /api/admin/app-scripts` 请求体为 `{ "name": "...", "language": "node|es5|typescript|python|golang|adapter-js|adapter-python|adapter-go", "content": "..." }`；JS/Python 系走本地插件创建链路（校验元数据并加载），其余仅落盘不加载。
+- `:id` 为已加载脚本插件 UUID 或 `file:相对路径` 标识（占位脚本）。
+- `GET /api/admin/app-scripts/:id/executions` 为在线调试端点，以 SSE 流式返回脚本单次运行的 stdout/stderr（`data: out ...` / `data: err ...`）与结束事件（`data: exit exit_code=N ...`）；鉴权支持 `token` 查询参数回退（EventSource 无法携带自定义请求头），查询参数 `timeout` 控制超时（默认 120 秒、上限 600 秒），超时或客户端断开自动终止脚本进程。
+- 已加载脚本的启停复用 `POST /api/admin/local-plugins/:id/status`（页面「启用/停用」徽章按钮即调用该接口）。
 - `POST /api/admin/dependency-deletions` 请求体为 `{ "runtime": "node|python", "plugin": "发布者/插件名|__shared__", "package": "包名" }`。保留带路径参数的旧接口用于兼容；包名或作者路径可能含 `/` 时应使用 JSON 接口。
 
 ### User 资源

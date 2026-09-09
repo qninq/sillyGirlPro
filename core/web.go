@@ -419,7 +419,12 @@ func serveEmbeddedFile(c *gin.Context, name string) bool {
 	if fs.IsDir() {
 		return false
 	}
-	c.Header("cache-control", "max-age=864000")
+	// HTML 入口不允许长缓存（内容随版本变化），带哈希的静态资源可长期缓存。
+	if strings.EqualFold(filepath.Ext(name), ".html") {
+		c.Header("cache-control", "no-cache")
+	} else {
+		c.Header("cache-control", "max-age=864000")
+	}
 	if contentType := mime.TypeByExtension(filepath.Ext(name)); contentType != "" {
 		c.Header("Content-Type", contentType)
 	}

@@ -96,6 +96,24 @@ export type PluginInfo = {
   missing_module_dependencies?: string[];
 };
 
+export type AppScriptInfo = {
+  id: string;
+  title: string;
+  name: string;
+  language: string;
+  executable: boolean;
+  file: string;
+  desc?: string;
+  version?: string;
+  status?: boolean;
+  on_start?: boolean;
+  web?: boolean;
+  has_cron?: boolean;
+  has_form?: boolean;
+  installed?: boolean;
+  create_at?: string;
+};
+
 export type Reply = {
   id?: number;
   index?: number;

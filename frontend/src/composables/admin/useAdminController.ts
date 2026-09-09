@@ -18,6 +18,7 @@ import {
   Bot,
   ClipboardList,
   Database,
+  FileCode2,
   Home,
   ListChecks,
   MessageSquare,
@@ -55,6 +56,7 @@ import { useRepliesAdmin } from "./useRepliesAdmin";
 import { usePanelsAdmin, type AdminPanelsResponse } from "./usePanelsAdmin";
 import { useStorageAdmin } from "./useStorageAdmin";
 import { useTasksAdmin } from "./useTasksAdmin";
+import { useScriptsAdmin } from "./useScriptsAdmin";
 import { pluginConfigFieldVisible as resolvePluginConfigFieldVisible } from "./visibleWhen";
 
 export function useAdminController() {
@@ -74,6 +76,7 @@ export function useAdminController() {
     | "bots"
     | "dependencies"
     | "plugins"
+    | "scripts"
     | "logs"
     | "commands"
     | "storage"
@@ -92,6 +95,7 @@ export function useAdminController() {
     "bots",
     "dependencies",
     "plugins",
+    "scripts",
     "logs",
     "commands",
     "storage",
@@ -503,6 +507,11 @@ export function useAdminController() {
       icon: () => h(Package, { size: 16 }),
     },
     { key: "plugins", label: "插件市场", icon: () => h(Plug, { size: 16 }) },
+    {
+      key: "scripts",
+      label: "插件开发",
+      icon: () => h(FileCode2, { size: 16 }),
+    },
     { key: "logs", label: "实时日志", icon: () => h(ScrollText, { size: 16 }) },
     {
       key: "commands",
@@ -540,10 +549,6 @@ export function useAdminController() {
 
   function pageFromPath(): PageKey {
     const path = window.location.pathname.replace(/^\/admin\/?/, "/");
-    if (path.startsWith("/script/") || path === "/scripts") {
-      window.history.replaceState({}, "", "/admin/plugins");
-      return "plugins";
-    }
     const key = path.split("/").filter(Boolean)[0] || "welcome";
     if (legacyContainerPages.includes(key as ContainerKind))
       return "containers";
@@ -773,6 +778,31 @@ export function useAdminController() {
     runTask,
     toggleTaskEnabled,
   } = useTasksAdmin();
+
+  const {
+    scripts: appScripts,
+    scriptsTotal: appScriptsTotal,
+    scriptCategories: appScriptCategories,
+    scriptCategoryChildren: appScriptCategoryChildren,
+    toggleScriptCategory,
+    filteredScriptItems: filteredAppScriptItems,
+    scriptStatusToggling: appScriptStatusToggling,
+    toggleAppScriptStatus,
+    loadAppScripts,
+    enterScriptsPage,
+    scriptEditor,
+    scriptEditorHost,
+    openScriptEditor,
+    createScript,
+    saveScriptEditor,
+    deleteScriptEditor,
+    toggleScriptEditorTheme,
+    initScriptEditor,
+    scriptDebug,
+    runScriptDebug,
+    stopScriptDebug,
+    clearScriptDebug,
+  } = useScriptsAdmin();
 
   const {
     carry,
@@ -3092,6 +3122,7 @@ export function useAdminController() {
       if (p === "users") loadNormalUsers();
       if (p === "masters") loadMasters();
       if (p === "tasks") loadTasks();
+      if (p === "scripts") enterScriptsPage();
       if (p === "message-tools") loadActiveMessageTool();
       if (p === "containers") loadActiveContainerPanels();
       if (p === "dependencies") loadNodeDependencies();
@@ -3333,6 +3364,28 @@ export function useAdminController() {
     setupRequired,
     startClawbotLogin,
     startOnlineUpdate,
+    appScripts,
+    appScriptsTotal,
+    appScriptCategories,
+    appScriptCategoryChildren,
+    toggleScriptCategory,
+    filteredAppScriptItems,
+    appScriptStatusToggling,
+    toggleAppScriptStatus,
+    loadAppScripts,
+    enterScriptsPage,
+    scriptEditor,
+    scriptEditorHost,
+    openScriptEditor,
+    createScript,
+    saveScriptEditor,
+    deleteScriptEditor,
+    toggleScriptEditorTheme,
+    initScriptEditor,
+    scriptDebug,
+    runScriptDebug,
+    stopScriptDebug,
+    clearScriptDebug,
     storageBackendOptions,
     storageState,
     submitClawbotVerifyCode,

@@ -10,6 +10,7 @@
 |---|---|---|
 | 管理概览 | `/admin` | 查看版本、脚本、用户与容器摘要 |
 | 插件市场 | `/admin/plugins` | 搜索、安装、编辑和配置插件 |
+| 插件开发 | `/admin/scripts` | 按语言分类管理本地应用脚本，在线编辑、配参与调试 |
 | 存储管理 | `/admin/storage` | 查看 Bucket、Key 与 Value |
 | BOT 管理 | `/admin/bots` | 配置适配器并查看连接状态 |
 
