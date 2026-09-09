@@ -15,7 +15,6 @@ var (
 	optionalRuleParamPattern = regexp.MustCompile(`\[([^\s\[\]]+)\]`)
 	multiSpacePattern        = regexp.MustCompile("\x20{2,}")
 	classTokenPattern        = regexp.MustCompile(`\S+`)
-	smallCatCallPattern      = regexp.MustCompile(`\b(?:new\s+)?SmallCat\s*[.(]`)
 	pluginFormCallPattern    = regexp.MustCompile(`\b(?:new\s+)?plugin\s*\.\s*Form\s*\(`)
 	userFormCallPattern      = regexp.MustCompile(`\b(?:new\s+)?user\s*\.\s*Form\s*\(`)
 )
@@ -39,7 +38,6 @@ func pluginParse(script string, uuid string) (*common.Function, []func()) {
 	var crons = map[string]string{}
 	var hasForm bool
 	var hasUserForm bool
-	var usesSmallCat = smallCatCallPattern.MatchString(script)
 	var carry bool
 	var classes = []string{}
 	ks := map[string]bool{}
@@ -144,30 +142,29 @@ func pluginParse(script string, uuid string) (*common.Function, []func()) {
 	hasForm = pluginFormCallPattern.MatchString(script)
 	hasUserForm = userFormCallPattern.MatchString(script)
 	return &common.Function{
-		Rules:        rules,
-		Admin:        admin,
-		Priority:     priority,
-		Status:       pluginStatusValue(statusEnabled),
-		UUID:         uuid,
-		Title:        title,
-		Public:       public,
-		Open:         plugin_open.GetBool(uuid),
-		Desc:         desc,
-		Icon:         pluginIconOrDefault(icon),
-		Version:      version,
-		Author:       author,
-		Class:        strings.Join(classes, " "),
-		Module:       module,
-		OnStart:      onStart || web,
-		Web:          web,
-		Origin:       origin,
-		Cron:         crons,
-		Running:      statusEnabled && (onStart || web),
-		HasForm:      hasForm,
-		HasUserForm:  hasUserForm,
-		UsesSmallCat: usesSmallCat,
-		Carry:        carry,
-		Classes:      classes,
+		Rules:       rules,
+		Admin:       admin,
+		Priority:    priority,
+		Status:      pluginStatusValue(statusEnabled),
+		UUID:        uuid,
+		Title:       title,
+		Public:      public,
+		Open:        plugin_open.GetBool(uuid),
+		Desc:        desc,
+		Icon:        pluginIconOrDefault(icon),
+		Version:     version,
+		Author:      author,
+		Class:       strings.Join(classes, " "),
+		Module:      module,
+		OnStart:     onStart || web,
+		Web:         web,
+		Origin:      origin,
+		Cron:        crons,
+		Running:     statusEnabled && (onStart || web),
+		HasForm:     hasForm,
+		HasUserForm: hasUserForm,
+		Carry:       carry,
+		Classes:     classes,
 	}, cbs
 }
 

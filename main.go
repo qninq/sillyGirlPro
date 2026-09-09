@@ -110,7 +110,7 @@ func runStartupStorageMigration() {
 	root := core.MakeBucket("sillyGirl")
 	result := storagemigrate.Run(root, root.Type(), false)
 	if result.Total > 0 {
-		fmt.Printf("启动前数据字段迁移完成：面板=%d BOT=%d 插件配置=%d 用户=%d 授权=%d\n",
-			result.PanelBuckets, result.AdapterKeys, result.PluginConfigValues, result.Users, result.Authorizations)
+		fmt.Printf("启动前数据字段迁移完成：面板=%d BOT=%d 插件配置=%d 用户=%d\n",
+			result.PanelBuckets, result.AdapterKeys, result.PluginConfigValues, result.Users)
 	}
 }

@@ -138,7 +138,7 @@ Base URL: `http://host:port/api`
 
 `GET /api/admin/command-list` 返回全部已注册指令（内置 Go 指令与脚本插件指令），包括消息消费循环中硬编码的内置管理命令（群聊/私聊的 `listen`、`unlisten`/`nolisten`、`reply`、`noreply`/`unreply`，标记 `readonly`），每项含触发正则、用途、来源（`builtin`/`plugin`）和管理员限制，响应 `data.stats` 提供 `builtin`/`plugin`/`adminOnly` 数量统计。`POST /api/admin/command-list/:key/admin` 请求体为 `{ "admin": true|false }`，覆盖脚本头部的 `[admin]` 声明并持久化，立即生效且在重启与插件热重载后保留；`readonly` 的内置命令不可修改。
 
-面板集合使用请求体字段 `type: "qinglong" | "daidai" | "smallcat"` 区分具体类型。`GET /api/admin/panels` 一次返回三类面板，不再并发请求 provider 专用接口。
+面板集合使用请求体字段 `type: "qinglong" | "daidai"` 区分具体类型。`GET /api/admin/panels` 一次返回两类面板，不再并发请求 provider 专用接口。
 
 本地插件接口使用文件插件 UUID 作为 `:id`：
 
@@ -157,18 +157,10 @@ Base URL: `http://host:port/api`
 | `POST` | `/api/user/bindings/:platform` |
 | `POST` | `/api/user/bindings/:platform/deletions` |
 | `GET` | `/api/user/plugins` |
-| `POST` | `/api/user/plugins/:uuid/authorization` |
-| `GET` | `/api/user/plugins/:uuid/smallcat-accounts` |
 | `GET` | `/api/user/plugins/:uuid/form` |
 | `POST` | `/api/user/plugins/:uuid/form-records` |
 | `POST` | `/api/user/plugins/:uuid/form-records/:record_id` |
 | `POST` | `/api/user/plugins/:uuid/form-records/:record_id/deletions` |
-| `GET` | `/api/user/smallcat-panels` |
-| `POST` | `/api/user/smallcat-login-sessions` |
-| `GET` | `/api/user/smallcat-login-sessions/:panel/:uuid` |
-| `POST` | `/api/user/smallcat-login-sessions/:panel/:uuid/confirmations` |
-| `POST` | `/api/user/smallcat-accounts` |
-| `POST` | `/api/user/smallcat-verification-codes` |
 
 ### Public 资源
 
@@ -535,7 +527,7 @@ print(f"Changed: {resp.changed}")
 - 已删除旧接口保持 `404`；
 - `401/404/409/422/500` 使用对应 HTTP 状态；
 - 所有 REST JSON 响应顶层严格包含 `status`、`message`、`data`，且 `status` 只能是布尔值；
-- `GET /api/admin/panels` 一次返回 `qinglong`、`daidai`、`smallcat` 三组集合。
+- `GET /api/admin/panels` 一次返回 `qinglong`、`daidai` 两组集合。
 
 ```bash
 go test ./core -run 'Test.*(REST|Route|HTTP|AdminResource)'

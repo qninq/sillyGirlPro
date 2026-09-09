@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/goccy/go-json"
@@ -17,7 +19,6 @@ type adminPanelList[T any] struct {
 }
 
 type adminPanelsResponse struct {
-	Smallcat adminPanelList[SmallcatPanel] `json:"smallcat"`
 	Qinglong adminPanelList[QinglongPanel] `json:"qinglong"`
 	Daidai   adminPanelList[DaidaiPanel]   `json:"daidai"`
 }
@@ -29,7 +30,6 @@ func init() {
 	GinApi(POST, "/api/admin/panels", RequireAuth, handleSaveAdminPanel)
 	GinApi(POST, "/api/admin/panels/:id", RequireAuth, handleSaveAdminPanel)
 	GinApi(POST, "/api/admin/panels/:id/deletions", RequireAuth, handleDeleteAdminPanel)
-	GinApi(GET, "/api/admin/panels/:id/accounts", RequireAuth, handleSmallcatPanelAccounts)
 	GinApi(POST, "/api/admin/panel-connection-tests", RequireAuth, handleAdminPanelConnectionTest)
 	GinApi(POST, "/api/admin/panel-status-checks", RequireAuth, func(ctx *gin.Context) {
 		ApiOK(ctx, getAdminPanels(true))
@@ -47,10 +47,8 @@ func handleSaveAdminPanel(ctx *gin.Context) {
 		handleSaveQinglongPanel(ctx)
 	case "daidai":
 		handleSaveDaidaiPanel(ctx)
-	case "smallcat":
-		handleSaveSmallcatPanel(ctx)
 	default:
-		ApiUnprocessable(ctx, "面板类型必须是 qinglong、daidai 或 smallcat")
+		ApiUnprocessable(ctx, "面板类型必须是 qinglong 或 daidai")
 	}
 }
 
@@ -65,10 +63,8 @@ func handleAdminPanelConnectionTest(ctx *gin.Context) {
 		handleQinglongPanelConnectionTest(ctx)
 	case "daidai":
 		handleDaidaiPanelConnectionTest(ctx)
-	case "smallcat":
-		handleSmallcatPanelConnectionTest(ctx)
 	default:
-		ApiUnprocessable(ctx, "面板类型必须是 qinglong、daidai 或 smallcat")
+		ApiUnprocessable(ctx, "面板类型必须是 qinglong 或 daidai")
 	}
 }
 
@@ -86,7 +82,7 @@ func handleDeleteAdminPanel(ctx *gin.Context) {
 		ApiFail(ctx, "缺少面板 ID")
 		return
 	}
-	deleted := deleteQinglongPanel(id) || deleteDaidaiPanel(id) || deleteSmallcatPanel(id)
+	deleted := deleteQinglongPanel(id) || deleteDaidaiPanel(id)
 	if !deleted {
 		ApiNotFound(ctx, "面板不存在")
 		return
@@ -131,32 +127,61 @@ func adminPanelKindByID(id string) string {
 			return "daidai"
 		}
 	}
-	if storedSmallcatPanelByID(id) != nil {
-		return "smallcat"
-	}
 	return ""
 }
 
-func getAdminPanels(refreshSmallcat bool) adminPanelsResponse {
-	smallcatPanels := getSmallcatPanels()
-	if refreshSmallcat {
-		refreshSmallcatPanelsStatus(smallcatPanels)
+func refreshQinglongPanelsStatus(panels []QinglongPanel) {
+	refreshPanelsStatus(len(panels), func(index int) {
+		if updated, err := testQinglongPanel(panels[index]); err != nil {
+			panels[index].Status = "offline"
+			panels[index].Message = err.Error()
+			panels[index].LastCheckedAt = int(time.Now().Unix())
+		} else if updated != nil {
+			panels[index] = *updated
+		}
+	})
+}
+
+func refreshDaidaiPanelsStatus(panels []DaidaiPanel) {
+	refreshPanelsStatus(len(panels), func(index int) {
+		if updated, err := testDaidaiPanel(panels[index]); err != nil {
+			panels[index].Status = "offline"
+			panels[index].Message = err.Error()
+			panels[index].LastCheckedAt = int(time.Now().Unix())
+		} else if updated != nil {
+			panels[index] = *updated
+		}
+	})
+}
+
+func refreshPanelsStatus(count int, check func(index int)) {
+	var wg sync.WaitGroup
+	for index := 0; index < count; index++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			check(i)
+		}(index)
 	}
-	qinglongPanels := getQinglongPanels()
-	daidaiPanels := getDaidaiPanels()
-	return buildAdminPanelsResponse(smallcatPanels, qinglongPanels, daidaiPanels)
+	wg.Wait()
+}
+
+func getAdminPanels(refresh bool) adminPanelsResponse {
+	if refresh {
+		qinglongPanels := getQinglongPanels()
+		daidaiPanels := getDaidaiPanels()
+		refreshQinglongPanelsStatus(qinglongPanels)
+		refreshDaidaiPanelsStatus(daidaiPanels)
+		return buildAdminPanelsResponse(qinglongPanels, daidaiPanels)
+	}
+	return buildAdminPanelsResponse(getQinglongPanels(), getDaidaiPanels())
 }
 
 func buildAdminPanelsResponse(
-	smallcatPanels []SmallcatPanel,
 	qinglongPanels []QinglongPanel,
 	daidaiPanels []DaidaiPanel,
 ) adminPanelsResponse {
 	return adminPanelsResponse{
-		Smallcat: adminPanelList[SmallcatPanel]{
-			List:  redactSmallcatPanels(smallcatPanels),
-			Total: len(smallcatPanels),
-		},
 		Qinglong: adminPanelList[QinglongPanel]{
 			List:  qinglongPanels,
 			Total: len(qinglongPanels),

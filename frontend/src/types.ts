@@ -56,26 +56,8 @@ export type AdminUserRow = {
   bindings?: {
     qq?: string;
     telegram?: string;
-    smallcat_openid?: string;
-    smallcat_openids?: string[];
     updated_at?: number;
   };
-  plugin_authorizations?: AdminUserPluginAuthorization[];
-};
-
-export type AdminUserPluginAuthorization = {
-  uuid: string;
-  title: string;
-  desc?: string;
-  icon?: string;
-  version?: string;
-  author?: string;
-  class?: string;
-  open?: boolean;
-  installed?: boolean;
-  uses_smallcat?: boolean;
-  has_user_form?: boolean;
-  authorized?: boolean;
 };
 
 export type PluginInfo = {
@@ -102,7 +84,6 @@ export type PluginInfo = {
   has_form?: boolean;
   has_user_form?: boolean;
   config_registered?: boolean;
-  uses_smallcat?: boolean;
   module?: boolean;
   on_start?: boolean;
   create_at?: string;
@@ -184,23 +165,6 @@ export type QinglongPanel = {
   last_checked_at?: number;
   status?: string;
   message?: string;
-};
-
-export type SmallcatPanel = {
-  id?: string;
-  name?: string;
-  address: string;
-  api_auth: string;
-  created_at?: number;
-  updated_at?: number;
-  last_checked_at?: number;
-  status?: string;
-  message?: string;
-  group?: string;
-  namespace?: string;
-  account_limit?: string;
-  account_used?: string;
-  credit_balance?: string;
 };
 
 export type DaidaiPanel = {

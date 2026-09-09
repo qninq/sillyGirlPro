@@ -10,7 +10,7 @@ func TestPluginMatchesKeyword(t *testing.T) {
 	plugin := &common.Function{
 		UUID:            "jdCodeLogin",
 		Title:           "京东CODE登录",
-		Desc:            "通过 SmallCat OAuth 获取 Cookie",
+		Desc:            "通过扫码 OAuth 获取 Cookie",
 		Author:          "SmallFawn",
 		Class:           "工具",
 		PluginPublisher: common.PluginPublisher{Organization: "Example/Plugin-Market"},
@@ -26,7 +26,7 @@ func TestPluginMatchesKeyword(t *testing.T) {
 		{name: "case insensitive title", keyword: "code", want: true},
 		{name: "case insensitive author", keyword: "smallfawn", want: true},
 		{name: "separator insensitive", keyword: "jdcodelogin", want: true},
-		{name: "multiple fuzzy tokens", keyword: "smallcat cookie", want: true},
+		{name: "multiple fuzzy tokens", keyword: "oauth cookie", want: true},
 		{name: "source", keyword: "plugin market", want: true},
 		{name: "dependency", keyword: "axios extra", want: true},
 		{name: "missing", keyword: "telegram weather", want: false},

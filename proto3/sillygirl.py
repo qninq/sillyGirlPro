@@ -557,7 +557,6 @@ def _runtime_panel_index(ref):
 
 
 _CONTAINER_DEFINITIONS = {
-    "smallcat": {"key": "smallcat_panels", "label": "smallcat"},
     "qinglong": {"key": "qinglong_panels", "label": "青龙"},
     "daidai": {"key": "daidai_panels", "label": "呆呆"},
 }
@@ -567,8 +566,6 @@ def _normalize_container_kind(kind=None):
     value = str(kind or "").strip().lower()
     if not value:
         return ""
-    if value in ("smallcat", "small_cat", "sc"):
-        return "smallcat"
     if value in ("qinglong", "qing_long", "ql", "青龙"):
         return "qinglong"
     if value in ("daidai", "dai_dai", "dd", "呆呆"):
@@ -592,12 +589,11 @@ class _Container:
     def __init__(self, options=None):
         self.options = options or {}
         self.QingLong = _QingLong
-        self.SmallCat = _SmallCat
         self.DaiDai = _DaiDai
 
     async def getList(self, kind=None):
         wanted = _normalize_container_kind(kind)
-        kinds = [wanted] if wanted else ["smallcat", "qinglong", "daidai"]
+        kinds = [wanted] if wanted else ["qinglong", "daidai"]
         result = {}
         for item in kinds:
             definition = _CONTAINER_DEFINITIONS[item]
@@ -774,164 +770,6 @@ class _QingLong:
     async def systemNotify(self, title, content):
         result = await self.request("PUT", "/system/notify", {"title": title, "content": content})
         return result.get("data", result)
-
-
-def _smallcat_account_openid(value):
-    if not isinstance(value, dict):
-        return ""
-    return str(value.get("openid") or value.get("openId") or value.get("open_id") or "").strip()
-
-
-def _filter_smallcat_account_payload(value, allowed):
-    if isinstance(value, list):
-        result = []
-        for item in value:
-            filtered = _filter_smallcat_account_payload(item, allowed)
-            if filtered is not None:
-                result.append(filtered)
-        return result
-    if not isinstance(value, dict):
-        return value
-    openid = _smallcat_account_openid(value)
-    if openid and openid not in allowed:
-        return None
-    result = {}
-    for key, item in value.items():
-        filtered = _filter_smallcat_account_payload(item, allowed)
-        if filtered is not None:
-            result[key] = filtered
-    return result
-
-
-class _SmallCat:
-    def __init__(self, options):
-        self.id = _runtime_panel_index(options)
-        self.uuid = ""
-        self.name = ""
-        self.address = ""
-        self.panel = None
-
-    async def _ready(self):
-        if self.panel is not None:
-            return
-        panels = await _read_runtime_panels("smallcat_panels")
-        if self.id < 1 or self.id > len(panels):
-            raise RuntimeError(f"smallcat 编号 {self.id or ''} 不存在")
-        self.panel = panels[self.id - 1]
-        self.uuid = self.panel.get("id", "")
-        self.name = self.panel.get("name", "")
-        self.address = str(self.panel.get("address", "")).rstrip("/")
-
-    async def request(self, method, path, body=None, query=None):
-        await self._ready()
-        return await _http_json(
-            method,
-            self.address + _normalize_path(path, "") + _query_string(query),
-            {"auth": str(self.panel.get("api_auth") or "")},
-            body,
-        )
-
-    async def _post(self, path, options=None):
-        return await self.request("POST", path, dict(options or {}))
-
-    async def createQr(self, qr_type):
-        return await self.request("POST", "/api/qr/start", qr_type if isinstance(qr_type, dict) else {"type": qr_type})
-
-    async def checkQr(self, uuid):
-        return await self.request("GET", "/api/qr/status", None, {"uuid": uuid})
-
-    async def addUser(self, options):
-        return await self._post("/api/accounts/add", options)
-
-    async def rescanUser(self, options):
-        return await self._post("/api/accounts/rescan", options)
-
-    async def authorizedUsers(self):
-        return await Bucket("__plugin_smallcat_authorized__").get(
-            "records",
-            {"enforced": False, "scope": "smallcat:read", "openids": [], "users": []},
-        )
-
-    async def userList(self):
-        authorization = await self.authorizedUsers()
-        payload = await self.request("GET", "/api/accounts")
-        if not authorization or not authorization.get("enforced"):
-            return payload
-        allowed = {str(item or "").strip() for item in authorization.get("openids", []) if str(item or "").strip()}
-        return _filter_smallcat_account_payload(payload, allowed)
-
-    async def checkUsers(self, options):
-        return await self._post("/api/accounts/status", options)
-
-    async def setUserRemark(self, options):
-        return await self._post("/api/accounts/remark", options)
-
-    async def setUserDisabled(self, options):
-        return await self._post("/api/accounts/disable", options)
-
-    async def deleteUser(self, options):
-        return await self._post("/api/accounts/delete", options)
-
-    async def proxyList(self):
-        return await self.request("GET", "/api/proxies")
-
-    async def testProxy(self, options):
-        return await self._post("/api/proxies/test", options)
-
-    async def addProxy(self, options):
-        return await self._post("/api/proxies/add", options)
-
-    async def deleteProxy(self, options):
-        return await self._post("/api/proxies/delete", options)
-
-    async def creditBalance(self):
-        return await self.request("GET", "/credits/balance")
-
-    async def creditLedger(self, query=None):
-        params = {"limit": 50} if query is None else ({"limit": query} if isinstance(query, (int, float)) else query)
-        return await self.request("GET", "/credits/ledger", None, params)
-
-    async def getCode(self, options):
-        return await self._post("/wx/code", options)
-
-    async def getSession(self, options):
-        return await self._post("/wx/getsession", options)
-
-    async def refreshSession(self, options):
-        return await self._post("/wx/refresh", options)
-
-    async def getUserInfo(self, options):
-        return await self._post("/wx/getuserinfo", options)
-
-    async def getEncryptKey(self, options):
-        return await self._post("/wx/encryptkey", options)
-
-    async def getPhoneNumber(self, options):
-        return await self._post("/wx/getphonenumber", options)
-
-    async def cloud(self, options):
-        return await self._post("/wx/cloud", options)
-
-    async def gateway(self, options):
-        return await self._post("/wx/gateway", options)
-
-    async def qrCodeAuth(self, options):
-        return await self._post("/wx/qrcodeauth", options)
-
-    async def oauth(self, options):
-        return await self._post("/wx/oauth", options)
-
-    async def translateLink(self, options):
-        return await self._post("/wx/translatelink", options)
-
-    async def autoAuth(self, options):
-        return await self._post("/wx/autoauth", options)
-
-    async def appMsgExt(self, options):
-        return await self._post("/wx/appmsgext", options)
-
-    async def appMsgLike(self, options):
-        return await self._post("/wx/appmsglike", options)
 
 
 class _DaiDai:

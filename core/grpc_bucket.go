@@ -78,9 +78,6 @@ func (sg *SillyGirlService) BucketWatch(stream srpc.SillyGirlService_BucketWatch
 
 // Get implements BucketServiceServer.Get.
 func (sg *SillyGirlService) BucketGet(ctx context.Context, req *srpc.BucketKeyRequest) (*srpc.Default, error) {
-	if req.Name == pluginSmallcatRuntimeBucket {
-		return &srpc.Default{Value: pluginSmallcatRuntimeValue(pluginIDFromRuntimeContext(ctx), req.Key)}, nil
-	}
 	if req.Name == pluginUserRuntimeBucket {
 		return &srpc.Default{Value: pluginUserRuntimeValue(pluginIDFromRuntimeContext(ctx), req.Key)}, nil
 	}
@@ -115,9 +112,6 @@ func (sg *SillyGirlService) BucketDelete(ctx context.Context, req *srpc.BucketRe
 
 // Keys implements BucketServiceServer.Keys.
 func (sg *SillyGirlService) BucketKeys(ctx context.Context, req *srpc.BucketRequest) (*srpc.BucketKeysResponse, error) {
-	if req.Name == pluginSmallcatRuntimeBucket {
-		return &srpc.BucketKeysResponse{Keys: []string{pluginSmallcatRuntimeRecordKey}}, nil
-	}
 	if req.Name == pluginUserRuntimeBucket {
 		return &srpc.BucketKeysResponse{Keys: []string{pluginUserRuntimeListKey}}, nil
 	}
@@ -137,12 +131,6 @@ func (sg *SillyGirlService) BucketLen(ctx context.Context, req *srpc.BucketReque
 }
 
 func (sg *SillyGirlService) BucketGetAll(ctx context.Context, req *srpc.BucketRequest) (*srpc.Default, error) {
-	if req.Name == pluginSmallcatRuntimeBucket {
-		values := map[string]string{
-			pluginSmallcatRuntimeRecordKey: pluginSmallcatRuntimeValue(pluginIDFromRuntimeContext(ctx), pluginSmallcatRuntimeRecordKey),
-		}
-		return &srpc.Default{Value: string(utils.JsonMarshal(values))}, nil
-	}
 	if req.Name == pluginUserRuntimeBucket {
 		values := map[string]string{
 			pluginUserRuntimeListKey: pluginUserRuntimeValue(pluginIDFromRuntimeContext(ctx), pluginUserRuntimeListKey),

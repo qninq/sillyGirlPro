@@ -65,7 +65,6 @@ declare class Bucket {
 export interface SillyGirlUserBindings {
     qq: string;
     telegram: string;
-    smallcat_openids: string[];
 }
 export interface SillyGirlUser {
     id: string;
@@ -199,7 +198,7 @@ declare const user: {
         name?: string;
     }): Promise<SillyGirlUser | undefined>;
 };
-type ContainerKind = "smallcat" | "qinglong" | "daidai";
+type ContainerKind = "qinglong" | "daidai";
 interface ContainerPanelInfo {
     index: number;
     id: string;
@@ -217,7 +216,6 @@ interface ContainerPanelList {
 }
 interface ContainerApi {
     QingLong: typeof QingLong;
-    SmallCat: typeof SmallCat;
     DaiDai: typeof DaiDai;
     getList(kind?: ContainerKind | string): Promise<Record<ContainerKind, ContainerPanelList> | ContainerPanelList>;
     count(kind: ContainerKind | string): Promise<number>;
@@ -248,68 +246,6 @@ declare class QingLong {
     enableEnvs(ids: any): Promise<any>;
     updateEnvNames(arg1: any, arg2?: any): Promise<any>;
     systemNotify(title: string, content: string): Promise<any>;
-}
-declare class SmallCat {
-    id: number;
-    uuid: string;
-    name: string;
-    address: string;
-    private panel;
-    private ready;
-    constructor(options: {
-        id: number | string;
-    });
-    private init;
-    request(method: string, path: string, body?: any, query?: Record<string, any>): Promise<any>;
-    private post;
-    createQr(type: any): Promise<any>;
-    checkQr(uuid: string): Promise<any>;
-    addUser(options: Record<string, any>): Promise<any>;
-    rescanUser(options: Record<string, any>): Promise<any>;
-    authorizedUsers(): Promise<any>;
-    userList(): Promise<any>;
-    checkUsers(options: Record<string, any>): Promise<any>;
-    setUserRemark(options: Record<string, any>): Promise<any>;
-    setUserDisabled(options: Record<string, any>): Promise<any>;
-    deleteUser(options: Record<string, any>): Promise<any>;
-    proxyList(): Promise<any>;
-    testProxy(options: Record<string, any>): Promise<any>;
-    addProxy(options: Record<string, any>): Promise<any>;
-    deleteProxy(options: Record<string, any>): Promise<any>;
-    creditBalance(): Promise<any>;
-    creditLedger(query?: Record<string, any> | number): Promise<any>;
-    getCode(options: {
-        openid: string;
-        appid: string;
-    }): Promise<any>;
-    getSession(options: {
-        openid: string;
-        appid: string;
-    }): Promise<any>;
-    refreshSession(options: {
-        openid: string;
-        appid: string;
-    }): Promise<any>;
-    getUserInfo(options: {
-        openid: string;
-        appid: string;
-    }): Promise<any>;
-    getEncryptKey(options: {
-        openid: string;
-        appid: string;
-    }): Promise<any>;
-    getPhoneNumber(options: {
-        openid: string;
-        appid: string;
-    }): Promise<any>;
-    cloud(options: Record<string, any>): Promise<any>;
-    gateway(options: Record<string, any>): Promise<any>;
-    qrCodeAuth(options: Record<string, any>): Promise<any>;
-    oauth(options: Record<string, any>): Promise<any>;
-    translateLink(options: Record<string, any>): Promise<any>;
-    autoAuth(options: Record<string, any>): Promise<any>;
-    appMsgExt(options: Record<string, any>): Promise<any>;
-    appMsgLike(options: Record<string, any>): Promise<any>;
 }
 declare class DaiDai {
     id: number;

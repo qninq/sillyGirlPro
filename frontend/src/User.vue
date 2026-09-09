@@ -5,14 +5,12 @@ import AntApp from "ant-design-vue/es/app";
 import Avatar from "ant-design-vue/es/avatar";
 import Button from "ant-design-vue/es/button";
 import Card from "ant-design-vue/es/card";
-import Col from "ant-design-vue/es/col";
 import ConfigProvider from "ant-design-vue/es/config-provider";
 import Empty from "ant-design-vue/es/empty";
 import Form from "ant-design-vue/es/form";
 import Input from "ant-design-vue/es/input";
 import InputNumber from "ant-design-vue/es/input-number";
 import Modal from "ant-design-vue/es/modal";
-import Row from "ant-design-vue/es/row";
 import Select from "ant-design-vue/es/select";
 import Space from "ant-design-vue/es/space";
 import Spin from "ant-design-vue/es/spin";
@@ -22,7 +20,7 @@ import Typography from "ant-design-vue/es/typography";
 import message from "ant-design-vue/es/message";
 import zhCN from "ant-design-vue/es/locale/zh_CN";
 import AppBrand from "./components/common/AppBrand.vue";
-import { Link, LogOut, Plug, QrCode, ShieldCheck } from "lucide-vue-next";
+import { Link, LogOut, Plug } from "lucide-vue-next";
 
 type ApiEnvelope<T> = {
   status: boolean;
@@ -48,17 +46,7 @@ type PublicUser = {
 type Bindings = {
   qq?: string;
   telegram?: string;
-  smallcat_openid?: string;
-  smallcat_openids?: string[];
   updated_at?: number;
-};
-
-type SmallcatPanel = {
-  index: number;
-  id: string;
-  name: string;
-  status: string;
-  message: string;
 };
 
 type OpenPlugin = {
@@ -71,10 +59,6 @@ type OpenPlugin = {
   class?: string;
   rule?: string;
   dependencies?: string[];
-  authorized?: boolean;
-  authorization_scope?: string;
-  smallcat_account_count?: number;
-  uses_smallcat?: boolean;
   has_user_form?: boolean;
 };
 
@@ -106,7 +90,6 @@ type UserAnnouncement = {
 type UserProfile = {
   user: PublicUser;
   bindings: Bindings;
-  smallcat_panels: SmallcatPanel[];
   announcement?: UserAnnouncement;
 };
 
@@ -118,9 +101,7 @@ const announcement = reactive<UserAnnouncement>({
   enabled: false,
   content: "",
 });
-const panels = ref<SmallcatPanel[]>([]);
 const openPlugins = ref<OpenPlugin[]>([]);
-const authorizingPluginIDs = ref<Set<string>>(new Set());
 const pluginUserForm = reactive({
   open: false,
   loading: false,
@@ -131,18 +112,9 @@ const pluginUserForm = reactive({
   values: {} as Record<string, unknown>,
   errors: {} as Record<string, string>,
 });
-const selectedPanel = ref(1);
 const bindForm = reactive({
   qq: "",
   telegram: "",
-});
-const smallcat = reactive({
-  qrType: 1,
-  uuid: "",
-  qrOpen: false,
-  qrLoading: false,
-  confirmLoading: false,
-  qrResult: null as unknown,
 });
 
 const userInitial = computed(() => {
@@ -150,19 +122,6 @@ const userInitial = computed(() => {
   return name.slice(0, 1).toUpperCase();
 });
 
-const panelOptions = computed(() =>
-  panels.value.map((item) => ({
-    value: item.index,
-    label: `编号 ${item.index}`,
-  })),
-);
-const qrTypeOptions = [
-  { value: 1, label: "应用宝" },
-  { value: 2, label: "手游助手" },
-];
-
-const selectedPanelText = computed(() => `编号 ${selectedPanel.value || 1}`);
-const smallcatOpenids = computed(() => normalizeOpenids(bindings));
 const announcementVisible = computed(
   () => !!announcement.enabled && !!String(announcement.content || "").trim(),
 );
@@ -354,23 +313,6 @@ function pluginClassTags(plugin: OpenPlugin) {
     .filter(Boolean);
 }
 
-const qrImage = computed(() => {
-  const value = findValueByKey(smallcat.qrResult, [
-    "qrcodeUrl",
-    "qrCodeDataUrl",
-    "qrcode",
-    "qrCode",
-    "qr_code",
-    "image",
-    "url",
-    "qrUrl",
-    "qr_url",
-  ]);
-  if (typeof value !== "string") return "";
-  if (/^(https?:\/\/|data:image\/)/i.test(value)) return value;
-  return "";
-});
-
 async function requestJSON<T>(
   url: string,
   options: RequestInit = {},
@@ -414,8 +356,6 @@ function fillProfile(data: UserProfile) {
   );
   bindForm.qq = bindings.qq || "";
   bindForm.telegram = bindings.telegram || "";
-  panels.value = data.smallcat_panels || [];
-  selectedPanel.value = panels.value[0]?.index || 1;
 }
 
 async function loadProfile() {
@@ -438,10 +378,6 @@ async function loadOpenPlugins() {
   } catch (_) {
     openPlugins.value = [];
   }
-}
-
-function pluginAuthorizationLoading(uuid: string) {
-  return authorizingPluginIDs.value.has(uuid);
 }
 
 const pluginUserFormFields = computed(() => {
@@ -596,39 +532,6 @@ async function deletePluginUserRecord(record: UserFormRecord) {
   });
 }
 
-async function togglePluginAuthorization(
-  plugin: OpenPlugin,
-  authorized: boolean,
-) {
-  const previous = !!plugin.authorized;
-  plugin.authorized = authorized;
-  authorizingPluginIDs.value = new Set([
-    ...authorizingPluginIDs.value,
-    plugin.id,
-  ]);
-  try {
-    await requestJSON(
-      `/api/user/plugins/${encodeURIComponent(plugin.id)}/authorization`,
-      {
-        method: "POST",
-        body: JSON.stringify({ authorized }),
-      },
-    );
-    message.success(
-      authorized
-        ? `已允许「${plugin.title || plugin.id}」读取你的 smallcat 账号`
-        : `已取消「${plugin.title || plugin.id}」的 smallcat 读取授权`,
-    );
-  } catch (error) {
-    plugin.authorized = previous;
-    message.error(error instanceof Error ? error.message : "插件授权保存失败");
-  } finally {
-    const next = new Set(authorizingPluginIDs.value);
-    next.delete(plugin.id);
-    authorizingPluginIDs.value = next;
-  }
-}
-
 async function logout() {
   try {
     await requestJSON<null>("/api/user/sessions/current/deletions", {
@@ -662,100 +565,6 @@ async function removeBinding(platform: "qq" | "telegram") {
   if (platform === "qq") bindForm.qq = "";
   if (platform === "telegram") bindForm.telegram = "";
   message.success("绑定已解除");
-}
-
-async function openSmallcatLogin() {
-  if (!panels.value.length) {
-    message.error("后台还没有绑定 smallcat");
-    return;
-  }
-  smallcat.qrOpen = true;
-  smallcat.qrResult = null;
-  smallcat.uuid = "";
-  smallcat.qrLoading = true;
-  try {
-    const data = await requestJSON<unknown>(
-      "/api/user/smallcat-login-sessions",
-      {
-        method: "POST",
-        body: JSON.stringify({
-          panel: selectedPanel.value,
-          type: smallcat.qrType,
-        }),
-      },
-    );
-    smallcat.qrResult = data;
-    const uuid = findValueByKey(data, ["uuid", "qrUuid", "qr_uuid"]);
-    if (typeof uuid === "string") smallcat.uuid = uuid;
-    if (!smallcat.uuid) {
-      message.warning("二维码已生成，但未识别到 uuid");
-    }
-  } catch (error) {
-    message.error(error instanceof Error ? error.message : "生成二维码失败");
-    smallcat.qrOpen = false;
-  } finally {
-    smallcat.qrLoading = false;
-  }
-}
-
-async function confirmSmallcatLogin() {
-  if (!smallcat.uuid.trim()) {
-    message.error("缺少二维码 uuid，请重新生成二维码");
-    return;
-  }
-  smallcat.confirmLoading = true;
-  try {
-    const data = await requestJSON<{ openid: string; bindings: Bindings }>(
-      `/api/user/smallcat-login-sessions/${selectedPanel.value}/${encodeURIComponent(smallcat.uuid.trim())}/confirmations`,
-      {
-        method: "POST",
-        body: "{}",
-      },
-    );
-    Object.assign(
-      bindings,
-      data.bindings || {
-        smallcat_openid: data.openid,
-        smallcat_openids: data.openid ? [data.openid] : [],
-      },
-    );
-    smallcat.qrOpen = false;
-    message.success("smallcat 登录成功");
-  } catch (error) {
-    message.error(
-      error instanceof Error ? error.message : "未检测到 smallcat 登录",
-    );
-  } finally {
-    smallcat.confirmLoading = false;
-  }
-}
-
-function findValueByKey(value: unknown, keys: string[]): unknown {
-  if (!value || typeof value !== "object") return undefined;
-  const record = value as Record<string, unknown>;
-  for (const key of keys) {
-    if (
-      record[key] !== undefined &&
-      record[key] !== null &&
-      record[key] !== ""
-    ) {
-      return record[key];
-    }
-  }
-  for (const item of Object.values(record)) {
-    const found = findValueByKey(item, keys);
-    if (found !== undefined && found !== null && found !== "") return found;
-  }
-  return undefined;
-}
-
-function normalizeOpenids(value: Bindings) {
-  const rows = [] as string[];
-  if (value.smallcat_openid) rows.push(value.smallcat_openid);
-  for (const item of value.smallcat_openids || []) {
-    if (item) rows.push(item);
-  }
-  return Array.from(new Set(rows.map((item) => item.trim()).filter(Boolean)));
 }
 
 onMounted(() => {
@@ -831,14 +640,6 @@ onMounted(() => {
                     <Tag :color="bindings.telegram ? 'green' : 'default'"
                       >TG {{ bindings.telegram || "未绑定" }}</Tag
                     >
-                    <Tag :color="smallcatOpenids.length ? 'green' : 'default'"
-                      >smallcat
-                      {{
-                        smallcatOpenids.length
-                          ? `${smallcatOpenids.length} 个账号`
-                          : "未登录"
-                      }}</Tag
-                    >
                   </Space>
                 </Space>
               </Card>
@@ -854,11 +655,6 @@ onMounted(() => {
                   >
                 </Space>
                 <Tag color="green">{{ openPlugins.length }} 个</Tag>
-              </div>
-              <div class="user-plugin-auth-tip">
-                <ShieldCheck :size="16" />
-                授权开关只控制插件读取你绑定的 smallcat 账号；获取 code
-                等后续操作默认同意，不再重复询问。
               </div>
               <div v-if="openPlugins.length" class="user-plugin-grid">
                 <article
@@ -902,26 +698,6 @@ onMounted(() => {
                         >点击填写参数</Tag
                       >
                     </Space>
-                    <div
-                      v-if="plugin.uses_smallcat"
-                      class="user-plugin-authorization"
-                      @click.stop
-                    >
-                      <span class="user-plugin-scope">
-                        <ShieldCheck :size="15" />
-                        仅授权读取你绑定的 smallcat 账号
-                      </span>
-                      <Switch
-                        :checked="!!plugin.authorized"
-                        :loading="pluginAuthorizationLoading(plugin.id)"
-                        checked-children="已授权"
-                        un-checked-children="未授权"
-                        @change="
-                          (checked: boolean) =>
-                            togglePluginAuthorization(plugin, checked)
-                        "
-                      />
-                    </div>
                   </div>
                 </article>
               </div>
@@ -1030,157 +806,64 @@ onMounted(() => {
               </Spin>
             </Modal>
 
-            <Row :gutter="[16, 16]">
-              <Col :xs="24" :lg="15">
-                <Card class="user-panel" :bordered="false">
-                  <template #title>
-                    <Space><QrCode :size="18" />smallcat 账号</Space>
-                  </template>
+            <Card class="user-panel" :bordered="false">
+              <template #title>
+                <Space><Link :size="18" />账号绑定</Space>
+              </template>
+              <Form layout="vertical">
+                <template v-if="bindings.qq">
+                  <Form.Item label="QQ 号">
+                    <Space class="bound-row">
+                      <Typography.Text class="mono">{{
+                        bindings.qq
+                      }}</Typography.Text>
+                      <Button @click="removeBinding('qq')">解绑</Button>
+                    </Space>
+                  </Form.Item>
+                </template>
+                <template v-else>
+                  <Form.Item label="QQ 号">
+                    <Input
+                      v-model:value="bindForm.qq"
+                      placeholder="例如：860562056"
+                    />
+                  </Form.Item>
+                  <Space class="bind-actions">
+                    <Button type="primary" @click="saveBinding('qq')"
+                      >绑定 QQ</Button
+                    >
+                  </Space>
+                </template>
 
-                  <Alert
-                    v-if="!panels.length"
-                    type="warning"
-                    show-icon
-                    message="后台还没有绑定 smallcat"
-                    description="请管理员先在后台添加 smallcat 面板后，普通用户才能添加 smallcat 账号。"
-                  />
-
-                  <div v-else class="smallcat-account">
-                    <div class="smallcat-status">
-                      <Typography.Text strong
-                        >当前 smallcat openid</Typography.Text
+                <template v-if="bindings.telegram">
+                  <Form.Item label="Telegram ID" class="bind-field">
+                    <Space class="bound-row">
+                      <Typography.Text class="mono">{{
+                        bindings.telegram
+                      }}</Typography.Text>
+                      <Button @click="removeBinding('telegram')"
+                        >解绑</Button
                       >
-                      <Space
-                        v-if="smallcatOpenids.length"
-                        direction="vertical"
-                        size="small"
-                      >
-                        <Typography.Text
-                          v-for="openid in smallcatOpenids"
-                          :key="openid"
-                          class="mono"
-                          >{{ openid }}</Typography.Text
-                        >
-                      </Space>
-                      <Typography.Text v-else class="muted"
-                        >未登录</Typography.Text
-                      >
-                    </div>
-                    <Form layout="vertical" class="smallcat-form">
-                      <Form.Item label="smallcat 面板">
-                        <Select
-                          v-model:value="selectedPanel"
-                          :options="panelOptions"
-                        />
-                      </Form.Item>
-                      <Form.Item label="二维码类型">
-                        <Select
-                          v-model:value="smallcat.qrType"
-                          :options="qrTypeOptions"
-                        />
-                      </Form.Item>
-                      <Button
-                        type="primary"
-                        size="large"
-                        @click="openSmallcatLogin"
-                      >
-                        添加 smallcat 账号
-                      </Button>
-                    </Form>
-                  </div>
-                </Card>
-              </Col>
-
-              <Col :xs="24" :lg="9">
-                <Card class="user-panel" :bordered="false">
-                  <template #title>
-                    <Space><Link :size="18" />账号绑定</Space>
-                  </template>
-                  <Form layout="vertical">
-                    <template v-if="bindings.qq">
-                      <Form.Item label="QQ 号">
-                        <Space class="bound-row">
-                          <Typography.Text class="mono">{{
-                            bindings.qq
-                          }}</Typography.Text>
-                          <Button @click="removeBinding('qq')">解绑</Button>
-                        </Space>
-                      </Form.Item>
-                    </template>
-                    <template v-else>
-                      <Form.Item label="QQ 号">
-                        <Input
-                          v-model:value="bindForm.qq"
-                          placeholder="例如：860562056"
-                        />
-                      </Form.Item>
-                      <Space class="bind-actions">
-                        <Button type="primary" @click="saveBinding('qq')"
-                          >绑定 QQ</Button
-                        >
-                      </Space>
-                    </template>
-
-                    <template v-if="bindings.telegram">
-                      <Form.Item label="Telegram ID" class="bind-field">
-                        <Space class="bound-row">
-                          <Typography.Text class="mono">{{
-                            bindings.telegram
-                          }}</Typography.Text>
-                          <Button @click="removeBinding('telegram')"
-                            >解绑</Button
-                          >
-                        </Space>
-                      </Form.Item>
-                    </template>
-                    <template v-else>
-                      <Form.Item label="Telegram ID" class="bind-field">
-                        <Input
-                          v-model:value="bindForm.telegram"
-                          placeholder="例如：123456789"
-                        />
-                      </Form.Item>
-                      <Space class="bind-actions">
-                        <Button type="primary" @click="saveBinding('telegram')"
-                          >绑定 TG</Button
-                        >
-                      </Space>
-                    </template>
-                  </Form>
-                </Card>
-              </Col>
-            </Row>
+                    </Space>
+                  </Form.Item>
+                </template>
+                <template v-else>
+                  <Form.Item label="Telegram ID" class="bind-field">
+                    <Input
+                      v-model:value="bindForm.telegram"
+                      placeholder="例如：123456789"
+                    />
+                  </Form.Item>
+                  <Space class="bind-actions">
+                    <Button type="primary" @click="saveBinding('telegram')"
+                      >绑定 TG</Button
+                    >
+                  </Space>
+                </template>
+              </Form>
+            </Card>
           </template>
         </main>
-
-        <Modal
-          v-model:open="smallcat.qrOpen"
-          title="添加 smallcat 账号"
-          ok-text="确认登录"
-          cancel-text="取消"
-          :confirm-loading="smallcat.confirmLoading"
-          @ok="confirmSmallcatLogin"
-        >
-          <Space direction="vertical" size="middle" class="qr-modal">
-            <Alert
-              type="info"
-              show-icon
-              :message="`请在 2 分钟内使用 ${selectedPanelText} 扫码登录，完成后点击确认登录。`"
-            />
-            <div class="qr-box">
-              <span v-if="smallcat.qrLoading" class="muted"
-                >二维码生成中...</span
-              >
-              <img v-else-if="qrImage" :src="qrImage" alt="smallcat 二维码" />
-              <span v-else class="muted"
-                >未识别到二维码图片，请检查 smallcat 返回。</span
-              >
-            </div>
-            <Typography.Text v-if="smallcat.uuid" class="mono"
-              >UUID: {{ smallcat.uuid }}</Typography.Text
-            >
-          </Space>
-        </Modal>
       </div>
     </AntApp>
   </ConfigProvider>
@@ -1411,24 +1094,6 @@ onMounted(() => {
   -webkit-line-clamp: 2;
 }
 
-.user-plugin-authorization {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding-top: 12px;
-  margin-top: 12px;
-  border-top: 1px solid #eef2f6;
-}
-
-.user-plugin-scope {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: #64748b;
-  font-size: 12px;
-}
-
 .user-login-card {
   max-width: 420px;
   margin: 80px auto 0;
@@ -1441,50 +1106,6 @@ onMounted(() => {
 
 .user-name {
   font-weight: 700;
-}
-
-.smallcat-account {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
-  gap: 16px;
-  align-items: start;
-}
-
-.smallcat-status {
-  display: grid;
-  gap: 10px;
-  min-height: 136px;
-  padding: 16px;
-  border: 1px solid #edf0f5;
-  border-radius: 8px;
-  background: #f8fafc;
-}
-
-.smallcat-form {
-  padding: 16px;
-  border: 1px solid #edf0f5;
-  border-radius: 8px;
-  background: #ffffff;
-}
-
-.qr-modal {
-  width: 100%;
-}
-
-.qr-box {
-  display: grid;
-  place-items: center;
-  min-height: 260px;
-  padding: 16px;
-  border: 1px solid #edf0f5;
-  border-radius: 8px;
-  background: #ffffff;
-}
-
-.qr-box img {
-  max-width: 240px;
-  width: 100%;
-  height: auto;
 }
 
 .bind-actions {
@@ -1515,7 +1136,6 @@ onMounted(() => {
 
 @media (max-width: 920px) {
   .user-summary,
-  .smallcat-account,
   .user-plugin-grid {
     grid-template-columns: 1fr;
   }
@@ -1565,7 +1185,6 @@ onMounted(() => {
     padding: 12px;
   }
 
-  .user-plugin-authorization,
   .plugin-user-record {
     align-items: flex-start;
     flex-direction: column;

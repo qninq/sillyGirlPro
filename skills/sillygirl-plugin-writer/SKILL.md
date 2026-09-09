@@ -1,6 +1,6 @@
 ---
 name: sillygirl-plugin-writer
-description: Write, migrate, review, debug, and validate complete SillyGirl JavaScript/NodeJS or Python plugins. Use for message-rule plugins, cron jobs, startup jobs, web services, carry handlers, modules, plugin.Form/user.Form schemas, Bucket persistence, sender APIs, dependencies, and QingLong/SmallCat/DaiDai integrations. Trigger on requests to create or fix SillyGirl scripts, plugin metadata, plugin-market files, or files under plugins/ or /data/plugins.
+description: Write, migrate, review, debug, and validate complete SillyGirl JavaScript/NodeJS or Python plugins. Use for message-rule plugins, cron jobs, startup jobs, web services, carry handlers, modules, plugin.Form/user.Form schemas, Bucket persistence, sender APIs, dependencies, and QingLong/DaiDai integrations. Trigger on requests to create or fix SillyGirl scripts, plugin metadata, plugin-market files, or files under plugins/ or /data/plugins.
 ---
 
 # SillyGirl Plugin Writer
@@ -134,7 +134,6 @@ Construct panel clients with object parameters only:
 
 ```js
 const ql = new container.QingLong({ id: 1 });
-const sc = new container.SmallCat({ id: 1 });
 const dd = new container.DaiDai({ id: 1 });
 ```
 
@@ -147,7 +146,7 @@ Read [references/runtime-api.md](references/runtime-api.md) before using forms, 
 - Deliver the whole plugin file with no TODO placeholders.
 - Keep secrets in `plugin.Form`, Bucket, or environment variables.
 - Keep configuration registration at top level and business execution inside `main`.
-- Use the exact runtime casing: `QingLong`, `SmallCat`, `DaiDai`, `checkQr`.
+- Use the exact runtime casing: `QingLong`, `DaiDai`.
 - Use `[status: true|false]` metadata for the plugin-wide runtime switch; use distinct form keys for feature-specific toggles.
 - Avoid hidden compatibility files or extra installers; prefer one portable plugin file.
 - Run the bundled validator and language parser.

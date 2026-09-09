@@ -11,7 +11,6 @@ import (
 	"net/url"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -48,30 +47,26 @@ type publicNormalUser struct {
 }
 
 type normalUserBindings struct {
-	QQ              string   `json:"qq"`
-	Telegram        string   `json:"telegram"`
-	SmallcatOpenID  string   `json:"smallcat_openid"`
-	SmallcatOpenIDs []string `json:"smallcat_openids"`
-	UpdatedAt       int64    `json:"updated_at"`
+	QQ        string `json:"qq"`
+	Telegram  string `json:"telegram"`
+	UpdatedAt int64  `json:"updated_at"`
 }
 
 type adminNormalUserRow struct {
 	publicNormalUser
-	Bindings             normalUserBindings                `json:"bindings"`
-	UpdatedAt            int64                             `json:"updated_at"`
-	Disabled             bool                              `json:"disabled"`
-	StorageKey           string                            `json:"storage_key"`
-	PluginAuthorizations []adminUserPluginAuthorizationRow `json:"plugin_authorizations,omitempty"`
+	Bindings   normalUserBindings `json:"bindings"`
+	UpdatedAt  int64              `json:"updated_at"`
+	Disabled   bool               `json:"disabled"`
+	StorageKey string             `json:"storage_key"`
 }
 
 type adminNormalUserPayload struct {
-	Username        string   `json:"username"`
-	Password        string   `json:"password"`
-	Nickname        string   `json:"nickname"`
-	Disabled        *bool    `json:"disabled"`
-	QQ              string   `json:"qq"`
-	Telegram        string   `json:"telegram"`
-	SmallcatOpenIDs []string `json:"smallcat_openids"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Nickname string `json:"nickname"`
+	Disabled *bool  `json:"disabled"`
+	QQ       string `json:"qq"`
+	Telegram string `json:"telegram"`
 }
 
 type userJWTClaims struct {
@@ -109,7 +104,7 @@ func init() {
 			}
 			return
 		}
-		bindings, err := replaceNormalUserBindings(user.Username, payload.QQ, payload.Telegram, payload.SmallcatOpenIDs)
+		bindings, err := replaceNormalUserBindings(user.Username, payload.QQ, payload.Telegram)
 		if err != nil {
 			_ = deleteNormalUser(user.Username)
 			ApiUnprocessable(ctx, err.Error())
@@ -233,9 +228,8 @@ func init() {
 		announcementEnabledValue := GetBucketKeyValue(sillyGirl, "user_announcement_enable")
 		announcementEnabled := announcementEnabledValue == true || fmt.Sprint(announcementEnabledValue) == "true"
 		ApiOK(ctx, gin.H{
-			"user":            toPublicNormalUser(user),
-			"bindings":        loadNormalUserBindings(user.Username),
-			"smallcat_panels": publicSmallcatPanels(),
+			"user":     toPublicNormalUser(user),
+			"bindings": loadNormalUserBindings(user.Username),
 			"announcement": gin.H{
 				"enabled": announcementEnabled,
 				"content": announcement,
@@ -259,7 +253,7 @@ func init() {
 		}
 		platform := ctx.Param("platform")
 		if !isPublicUserBindingPlatform(platform) {
-			ApiUnprocessable(ctx, "普通用户只能绑定 QQ 或 Telegram；smallcat 请通过扫码登录")
+			ApiUnprocessable(ctx, "普通用户只能绑定 QQ 或 Telegram")
 			return
 		}
 		bindings, err := updateNormalUserBinding(user.Username, platform, payload.Value)
@@ -287,247 +281,6 @@ func init() {
 			return
 		}
 		ApiOK(ctx, bindings)
-	})
-
-	GinApi(GET, "/api/user/smallcat-panels", RequireUserAuth, func(ctx *gin.Context) {
-		ApiOK(ctx, publicSmallcatPanels())
-	})
-
-	GinApi(POST, "/api/user/smallcat-login-sessions", RequireUserAuth, func(ctx *gin.Context) {
-		payload := struct {
-			Panel int         `json:"panel"`
-			Type  interface{} `json:"type"`
-		}{}
-		if err := json.NewDecoder(ctx.Request.Body).Decode(&payload); err != nil {
-			ApiFail(ctx, "请求体不是有效 JSON")
-			return
-		}
-		panel, err := smallcatPanelByIndex(payload.Panel)
-		if err != nil {
-			ApiNotFound(ctx, err.Error())
-			return
-		}
-		body := map[string]interface{}{"type": payload.Type}
-		raw, err := requestSmallcatJSON(panel, http.MethodPost, "/api/qr/start", body, nil)
-		if err != nil {
-			ApiBadGateway(ctx, err.Error())
-			return
-		}
-		data, message, ok := unwrapServiceData(decodeRawJSON(raw))
-		if !ok {
-			ApiBadGateway(ctx, message)
-			return
-		}
-		uuid := findStringInJSON(data, "uuid")
-		location := ""
-		if uuid != "" {
-			location = "/api/user/smallcat-login-sessions/" + strconv.Itoa(payload.Panel) + "/" + url.PathEscape(uuid)
-		}
-		ApiCreated(ctx, location, data)
-	})
-
-	GinApi(GET, "/api/user/smallcat-login-sessions/:panel/:uuid", RequireUserAuth, func(ctx *gin.Context) {
-		panelIndex, _ := strconv.Atoi(ctx.Param("panel"))
-		uuid := strings.TrimSpace(ctx.Param("uuid"))
-		if uuid == "" {
-			ApiUnprocessable(ctx, "缺少 uuid")
-			return
-		}
-		panel, err := smallcatPanelByIndex(panelIndex)
-		if err != nil {
-			ApiNotFound(ctx, err.Error())
-			return
-		}
-		raw, err := requestSmallcatJSON(panel, http.MethodGet, "/api/qr/status", nil, map[string]string{"uuid": uuid})
-		if err != nil {
-			ApiBadGateway(ctx, err.Error())
-			return
-		}
-		data, message, ok := unwrapServiceData(decodeRawJSON(raw))
-		if !ok {
-			ApiBadGateway(ctx, message)
-			return
-		}
-		ApiOK(ctx, data)
-	})
-
-	GinApi(POST, "/api/user/smallcat-login-sessions/:panel/:uuid/confirmations", RequireUserAuth, func(ctx *gin.Context) {
-		user := currentNormalUser(ctx)
-		if user == nil {
-			ApiError(ctx, http.StatusUnauthorized, "请先登录")
-			return
-		}
-		payload := struct {
-			Panel int
-			UUID  string
-		}{}
-		payload.Panel, _ = strconv.Atoi(ctx.Param("panel"))
-		payload.UUID = ctx.Param("uuid")
-		payload.UUID = strings.TrimSpace(payload.UUID)
-		if payload.UUID == "" {
-			ApiUnprocessable(ctx, "缺少 uuid")
-			return
-		}
-		panel, err := smallcatPanelByIndex(payload.Panel)
-		if err != nil {
-			ApiNotFound(ctx, err.Error())
-			return
-		}
-		raw, err := requestSmallcatJSON(panel, http.MethodGet, "/api/qr/status", nil, map[string]string{"uuid": payload.UUID})
-		if err != nil {
-			ApiBadGateway(ctx, err.Error())
-			return
-		}
-		result, message, ok := unwrapServiceData(decodeRawJSON(raw))
-		if !ok {
-			ApiBadGateway(ctx, message)
-			return
-		}
-		state := findStringInJSON(result, "state")
-		wxCode := findStringInJSON(result, "wxCode", "wx_code", "code")
-		if state != "confirmed" || wxCode == "" {
-			if state == "" {
-				state = "unknown"
-			}
-			ApiConflict(ctx, "当前扫码状态："+state+"，请扫码确认后再点击确认登录")
-			return
-		}
-		oauthState := findStringInJSON(result, "oauthState", "oauth_state", "state")
-		addRaw, err := requestSmallcatJSON(panel, http.MethodPost, "/api/accounts/add", gin.H{
-			"code":        wxCode,
-			"uuid":        payload.UUID,
-			"oauthState":  oauthState,
-			"displayName": user.Nickname,
-		}, nil)
-		if err != nil {
-			ApiBadGateway(ctx, err.Error())
-			return
-		}
-		addResult, message, ok := unwrapServiceData(decodeRawJSON(addRaw))
-		if !ok {
-			ApiBadGateway(ctx, message)
-			return
-		}
-		openid := findStringInJSON(addResult, "openid", "openId", "open_id")
-		if openid == "" {
-			ApiBadGateway(ctx, "smallcat 已确认扫码，但添加账号接口未返回 openid")
-			return
-		}
-		bindings, err := updateNormalUserBinding(user.Username, "smallcat", openid)
-		if err != nil {
-			ApiInternalError(ctx, err.Error())
-			return
-		}
-		ApiOK(ctx, gin.H{
-			"openid":   openid,
-			"bindings": bindings,
-			"status":   result,
-			"raw":      addResult,
-		})
-	})
-
-	GinApi(POST, "/api/user/smallcat-accounts", RequireUserAuth, func(ctx *gin.Context) {
-		user := currentNormalUser(ctx)
-		if user == nil {
-			ApiError(ctx, http.StatusUnauthorized, "请先登录")
-			return
-		}
-		payload := struct {
-			Panel       int    `json:"panel"`
-			Code        string `json:"code"`
-			Type        int    `json:"type"`
-			DisplayName string `json:"displayName"`
-		}{}
-		if err := json.NewDecoder(ctx.Request.Body).Decode(&payload); err != nil {
-			ApiFail(ctx, "请求体不是有效 JSON")
-			return
-		}
-		payload.Code = strings.TrimSpace(payload.Code)
-		payload.DisplayName = strings.TrimSpace(payload.DisplayName)
-		if payload.Code == "" {
-			ApiUnprocessable(ctx, "请输入授权码")
-			return
-		}
-		panel, err := smallcatPanelByIndex(payload.Panel)
-		if err != nil {
-			ApiNotFound(ctx, err.Error())
-			return
-		}
-		raw, err := requestSmallcatJSON(panel, http.MethodPost, "/api/accounts/add", gin.H{
-			"code":        payload.Code,
-			"type":        payload.Type,
-			"displayName": payload.DisplayName,
-		}, nil)
-		if err != nil {
-			ApiBadGateway(ctx, err.Error())
-			return
-		}
-		data, message, ok := unwrapServiceData(decodeRawJSON(raw))
-		if !ok {
-			ApiBadGateway(ctx, message)
-			return
-		}
-		openid := findStringInJSON(data, "openid", "openId", "open_id")
-		if openid == "" {
-			ApiBadGateway(ctx, "smallcat 添加账号成功，但接口未返回 openid")
-			return
-		}
-		bindings, err := updateNormalUserBinding(user.Username, "smallcat", openid)
-		if err != nil {
-			ApiInternalError(ctx, err.Error())
-			return
-		}
-		ApiCreated(ctx, "/api/user/profile", gin.H{
-			"openid":   openid,
-			"bindings": bindings,
-			"raw":      data,
-		})
-	})
-
-	GinApi(POST, "/api/user/smallcat-verification-codes", RequireUserAuth, func(ctx *gin.Context) {
-		user := currentNormalUser(ctx)
-		if user == nil {
-			ApiError(ctx, http.StatusUnauthorized, "请先登录")
-			return
-		}
-		payload := struct {
-			Panel  int    `json:"panel"`
-			OpenID string `json:"openid"`
-			AppID  string `json:"appid"`
-		}{}
-		if err := json.NewDecoder(ctx.Request.Body).Decode(&payload); err != nil {
-			ApiFail(ctx, "请求体不是有效 JSON")
-			return
-		}
-		payload.OpenID = strings.TrimSpace(payload.OpenID)
-		payload.AppID = strings.TrimSpace(payload.AppID)
-		if payload.OpenID == "" || payload.AppID == "" {
-			ApiUnprocessable(ctx, "openid 和 appid 不能为空")
-			return
-		}
-		if !normalUserHasSmallcatOpenID(user.Username, payload.OpenID) {
-			ApiForbidden(ctx, "只能为当前用户已绑定的 smallcat openid 生成 code")
-			return
-		}
-		panel, err := smallcatPanelByIndex(payload.Panel)
-		if err != nil {
-			ApiNotFound(ctx, err.Error())
-			return
-		}
-		raw, err := requestSmallcatJSON(panel, http.MethodPost, "/wx/code", gin.H{
-			"openid": payload.OpenID,
-			"appid":  payload.AppID,
-		}, nil)
-		if err != nil {
-			ApiBadGateway(ctx, err.Error())
-			return
-		}
-		data, message, ok := unwrapServiceData(decodeRawJSON(raw))
-		if !ok {
-			ApiBadGateway(ctx, message)
-			return
-		}
-		ApiCreated(ctx, "", data)
 	})
 
 	GinApi(POST, "/api/user/sessions/current/deletions", RequireUserAuth, func(ctx *gin.Context) {
@@ -578,7 +331,7 @@ func updateNormalUserByAdmin(payload adminNormalUserPayload) (*normalUser, norma
 	if err != nil {
 		return nil, normalUserBindings{}, err
 	}
-	bindings, err := normalizedReplacementBindings(payload.QQ, payload.Telegram, payload.SmallcatOpenIDs)
+	bindings, err := normalizedReplacementBindings(payload.QQ, payload.Telegram)
 	if err != nil {
 		return nil, normalUserBindings{}, err
 	}
@@ -616,11 +369,11 @@ func updateNormalUserByAdmin(payload adminNormalUserPayload) (*normalUser, norma
 	return user, bindings, nil
 }
 
-func replaceNormalUserBindings(username, qq, telegram string, openids []string) (normalUserBindings, error) {
+func replaceNormalUserBindings(username, qq, telegram string) (normalUserBindings, error) {
 	if _, err := loadNormalUser(username); err != nil {
 		return normalUserBindings{}, err
 	}
-	bindings, err := normalizedReplacementBindings(qq, telegram, openids)
+	bindings, err := normalizedReplacementBindings(qq, telegram)
 	if err != nil {
 		return normalUserBindings{}, err
 	}
@@ -631,7 +384,7 @@ func replaceNormalUserBindings(username, qq, telegram string, openids []string) 
 	return bindings, nil
 }
 
-func normalizedReplacementBindings(qq, telegram string, openids []string) (normalUserBindings, error) {
+func normalizedReplacementBindings(qq, telegram string) (normalUserBindings, error) {
 	bindings := normalUserBindings{
 		QQ:       strings.TrimSpace(qq),
 		Telegram: strings.TrimSpace(telegram),
@@ -641,16 +394,6 @@ func normalizedReplacementBindings(qq, telegram string, openids []string) (norma
 	}
 	if bindings.Telegram != "" && !userTGBindingPattern.MatchString(bindings.Telegram) {
 		return normalUserBindings{}, errors.New("Telegram ID 格式不正确")
-	}
-	if len(openids) > 100 {
-		return normalUserBindings{}, errors.New("smallcat openid 最多绑定 100 个")
-	}
-	for _, openid := range openids {
-		openid = strings.TrimSpace(openid)
-		if len([]rune(openid)) > 256 {
-			return normalUserBindings{}, errors.New("smallcat openid 不能超过 256 位")
-		}
-		bindings.SmallcatOpenIDs = appendUniqueOpenID(bindings.SmallcatOpenIDs, openid)
 	}
 	return normalizeNormalUserBindings(bindings), nil
 }
@@ -663,20 +406,6 @@ func deleteNormalUser(username string) error {
 	user, err := loadNormalUser(username)
 	if err != nil {
 		return err
-	}
-	authorizationPrefix := strings.TrimSpace(user.ID) + ":"
-	authorizationKeys := []string{}
-	pluginUserAuthorizations.Foreach(func(keyBytes, _ []byte) error {
-		key := string(keyBytes)
-		if strings.HasPrefix(key, authorizationPrefix) {
-			authorizationKeys = append(authorizationKeys, key)
-		}
-		return nil
-	})
-	for _, key := range authorizationKeys {
-		if _, _, err := pluginUserAuthorizations.Set(key, ""); err != nil {
-			return err
-		}
 	}
 	if err := deletePluginUserRecordsForUser(user.ID); err != nil {
 		return err
@@ -692,12 +421,11 @@ func deleteNormalUser(username string) error {
 
 func adminNormalUserRowFor(user *normalUser, bindings normalUserBindings) adminNormalUserRow {
 	return adminNormalUserRow{
-		publicNormalUser:     toPublicNormalUser(user),
-		Bindings:             normalizeNormalUserBindings(bindings),
-		UpdatedAt:            user.UpdatedAt,
-		Disabled:             user.Disabled,
-		StorageKey:           normalUserStorageKey(user.Username),
-		PluginAuthorizations: adminUserPluginAuthorizationsForUser(user.ID),
+		publicNormalUser: toPublicNormalUser(user),
+		Bindings:         normalizeNormalUserBindings(bindings),
+		UpdatedAt:        user.UpdatedAt,
+		Disabled:         user.Disabled,
+		StorageKey:       normalUserStorageKey(user.Username),
 	}
 }
 
@@ -896,16 +624,6 @@ func updateNormalUserBinding(username string, platform string, value string) (no
 			return bindings, errors.New("Telegram ID 格式不正确")
 		}
 		bindings.Telegram = value
-	case "smallcat", "smallcat_openid":
-		if value == "" {
-			bindings.SmallcatOpenID = ""
-			bindings.SmallcatOpenIDs = nil
-			break
-		}
-		bindings.SmallcatOpenIDs = appendUniqueOpenID(bindings.SmallcatOpenIDs, value)
-		if bindings.SmallcatOpenID == "" {
-			bindings.SmallcatOpenID = bindings.SmallcatOpenIDs[0]
-		}
 	default:
 		return bindings, errors.New("不支持的绑定类型")
 	}
@@ -929,47 +647,7 @@ func isPublicUserBindingPlatform(platform string) bool {
 func normalizeNormalUserBindings(bindings normalUserBindings) normalUserBindings {
 	bindings.QQ = strings.TrimSpace(bindings.QQ)
 	bindings.Telegram = strings.TrimSpace(bindings.Telegram)
-	openids := []string{}
-	if text := strings.TrimSpace(bindings.SmallcatOpenID); text != "" {
-		openids = appendUniqueOpenID(openids, text)
-	}
-	for _, openid := range bindings.SmallcatOpenIDs {
-		openids = appendUniqueOpenID(openids, openid)
-	}
-	bindings.SmallcatOpenIDs = openids
-	if len(openids) > 0 {
-		bindings.SmallcatOpenID = openids[0]
-	} else {
-		bindings.SmallcatOpenID = ""
-	}
 	return bindings
-}
-
-func normalUserHasSmallcatOpenID(username string, openid string) bool {
-	openid = strings.TrimSpace(openid)
-	if openid == "" {
-		return false
-	}
-	bindings := loadNormalUserBindings(username)
-	for _, item := range bindings.SmallcatOpenIDs {
-		if item == openid {
-			return true
-		}
-	}
-	return bindings.SmallcatOpenID == openid
-}
-
-func appendUniqueOpenID(values []string, value string) []string {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return values
-	}
-	for _, item := range values {
-		if item == value {
-			return values
-		}
-	}
-	return append(values, value)
 }
 
 func listNormalUsers() ([]adminNormalUserRow, error) {
@@ -991,12 +669,11 @@ func listNormalUsers() ([]adminNormalUserRow, error) {
 			return nil
 		}
 		rows = append(rows, adminNormalUserRow{
-			publicNormalUser:     toPublicNormalUser(user),
-			Bindings:             loadNormalUserBindings(user.Username),
-			UpdatedAt:            user.UpdatedAt,
-			Disabled:             user.Disabled,
-			StorageKey:           key,
-			PluginAuthorizations: adminUserPluginAuthorizationsForUser(user.ID),
+			publicNormalUser: toPublicNormalUser(user),
+			Bindings:         loadNormalUserBindings(user.Username),
+			UpdatedAt:        user.UpdatedAt,
+			Disabled:         user.Disabled,
+			StorageKey:       key,
 		})
 		return nil
 	})
@@ -1010,61 +687,6 @@ func listNormalUsers() ([]adminNormalUserRow, error) {
 		return rows[i].CreatedAt > rows[j].CreatedAt
 	})
 	return rows, nil
-}
-
-func decodeRawJSON(raw json.RawMessage) interface{} {
-	var value interface{}
-	if json.Unmarshal(raw, &value) != nil {
-		return string(raw)
-	}
-	return value
-}
-
-func unwrapServiceData(value interface{}) (interface{}, string, bool) {
-	payload, ok := value.(map[string]interface{})
-	if !ok {
-		return value, "", true
-	}
-	if status, exists := payload["status"].(bool); exists && !status {
-		message := strings.TrimSpace(fmt.Sprint(payload["message"]))
-		if message == "" {
-			message = "smallcat 请求失败"
-		}
-		return nil, message, false
-	}
-	if data, exists := payload["data"]; exists {
-		return data, "", true
-	}
-	return value, "", true
-}
-
-func findStringInJSON(value interface{}, keys ...string) string {
-	keySet := map[string]bool{}
-	for _, key := range keys {
-		keySet[strings.ToLower(key)] = true
-	}
-	switch typed := value.(type) {
-	case map[string]interface{}:
-		for key, item := range typed {
-			if keySet[strings.ToLower(key)] {
-				if text := strings.TrimSpace(fmt.Sprint(item)); text != "" && text != "<nil>" {
-					return text
-				}
-			}
-		}
-		for _, item := range typed {
-			if text := findStringInJSON(item, keys...); text != "" {
-				return text
-			}
-		}
-	case []interface{}:
-		for _, item := range typed {
-			if text := findStringInJSON(item, keys...); text != "" {
-				return text
-			}
-		}
-	}
-	return ""
 }
 
 func normalizeUserAnnouncementFormat(format string) string {

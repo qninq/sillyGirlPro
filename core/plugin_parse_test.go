@@ -118,27 +118,6 @@ func TestPluginParseAtMetadataEOFAndBoolVariants(t *testing.T) {
 	}
 }
 
-func TestPluginParseDetectsSmallCatUsage(t *testing.T) {
-	tests := []struct {
-		name   string
-		script string
-		want   bool
-	}{
-		{name: "javascript constructor", script: `const client = new ct.SmallCat({id: 1})`, want: true},
-		{name: "python constructor", script: `client = SmallCat({"id": 1})`, want: true},
-		{name: "static call", script: `SmallCat.userList()`, want: true},
-		{name: "description only", script: `/** SmallCat account helper */`, want: false},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			fn, _ := pluginParse(test.script, "demo")
-			if fn.UsesSmallCat != test.want {
-				t.Fatalf("UsesSmallCat = %v; want %v", fn.UsesSmallCat, test.want)
-			}
-		})
-	}
-}
-
 func TestPluginParseDetectsV2FormUsage(t *testing.T) {
 	tests := []struct {
 		name   string

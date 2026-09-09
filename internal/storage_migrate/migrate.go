@@ -14,10 +14,8 @@ import (
 )
 
 const (
-	smallcatPanelsKey = "smallcat_panels"
 	qinglongPanelsKey = "qinglong_panels"
 	daidaiPanelsKey   = "daidai_panels"
-	smallcatReadScope = "smallcat:read"
 )
 
 type Summary struct {
@@ -26,10 +24,9 @@ type Summary struct {
 	AdapterKeys        int    `json:"adapter_keys"`
 	PluginConfigValues int    `json:"plugin_config_values"`
 	Users              int    `json:"users"`
-	Authorizations     int    `json:"authorizations"`
 	Total              int    `json:"total"`
 	DryRun             bool   `json:"dry_run"`
-	UpdatedAt          int    `json:"updated_at"`
+	UpdatedAt          int64  `json:"updated_at"`
 }
 
 type adapterKeyMigration struct {
@@ -49,11 +46,9 @@ type normalUser struct {
 }
 
 type normalUserBindings struct {
-	QQ              string   `json:"qq"`
-	Telegram        string   `json:"telegram"`
-	SmallcatOpenID  string   `json:"smallcat_openid"`
-	SmallcatOpenIDs []string `json:"smallcat_openids"`
-	UpdatedAt       int64    `json:"updated_at"`
+	QQ        string `json:"qq"`
+	Telegram  string `json:"telegram"`
+	UpdatedAt int64  `json:"updated_at"`
 }
 
 func OpenStorage() (storage.Bucket, string) {
@@ -65,15 +60,13 @@ func OpenStorage() (storage.Bucket, string) {
 }
 
 func Run(root storage.Bucket, storageType string, dryRun bool) Summary {
-	result := Summary{Storage: storageType, DryRun: dryRun, UpdatedAt: int(time.Now().Unix())}
-	result.PanelBuckets += migratePanelBucket(root, "smallcat", smallcatPanelsKey, dryRun)
+	result := Summary{Storage: storageType, DryRun: dryRun, UpdatedAt: time.Now().Unix()}
 	result.PanelBuckets += migratePanelBucket(root, "qinglong", qinglongPanelsKey, dryRun)
 	result.PanelBuckets += migratePanelBucket(root, "daidai", daidaiPanelsKey, dryRun)
 	result.AdapterKeys = migrateAdapterKeys(root, dryRun)
 	result.PluginConfigValues = migratePluginConfigs(root, dryRun)
 	result.Users = migrateUsers(root, dryRun)
-	result.Authorizations = migrateAuthorizations(root, dryRun)
-	result.Total = result.PanelBuckets + result.AdapterKeys + result.PluginConfigValues + result.Users + result.Authorizations
+	result.Total = result.PanelBuckets + result.AdapterKeys + result.PluginConfigValues + result.Users
 	if result.Total > 0 && !dryRun {
 		setEncoded(root.Copy("sillyGirl"), "manual_storage_migration_v1_0_5", result)
 	}
@@ -134,13 +127,6 @@ func normalizePanel(kind, key, raw string) (map[string]interface{}, bool) {
 		"message":         firstString(item, "message", "msg", "error"),
 	}
 	switch kind {
-	case "smallcat":
-		panel["api_auth"] = firstString(item, "api_auth", "apiAuth", "auth", "token", "api_key", "apiKey")
-		panel["group"] = firstString(item, "group")
-		panel["namespace"] = firstString(item, "namespace")
-		panel["account_limit"] = firstString(item, "account_limit", "accountLimit", "limit")
-		panel["account_used"] = firstString(item, "account_used", "accountUsed", "used", "count")
-		panel["credit_balance"] = firstString(item, "credit_balance", "creditBalance", "balance")
 	case "qinglong":
 		panel["client_id"] = firstString(item, "client_id", "clientID", "clientId", "app_id", "appId")
 		panel["client_secret"] = firstString(item, "client_secret", "clientSecret", "secret", "app_secret", "appSecret")
@@ -283,57 +269,14 @@ func migrateUsers(root storage.Bucket, dryRun bool) int {
 			Disabled:     asBool(value["disabled"]),
 		}
 		bindings := normalizeBindings(normalUserBindings{
-			QQ:              firstString(value, "qq", "qq_id", "qqid"),
-			Telegram:        firstString(value, "telegram", "tg", "tgid", "telegram_id", "telegramId"),
-			SmallcatOpenID:  firstString(value, "smallcat_openid", "smallcatOpenID", "smallcatOpenId", "openid", "openId"),
-			SmallcatOpenIDs: mergedSlices(value["smallcat_openids"], value["openids"]),
-			UpdatedAt:       user.UpdatedAt,
+			QQ:        firstString(value, "qq", "qq_id", "qqid"),
+			Telegram:  firstString(value, "telegram", "tg", "tgid", "telegram_id", "telegramId"),
+			UpdatedAt: user.UpdatedAt,
 		})
 		changed++
 		if !dryRun {
 			bucket.Set2("user:"+strings.ToLower(user.Username), string(marshal(user)))
 			bucket.Set2("bindings:"+strings.ToLower(user.Username), string(marshal(bindings)))
-		}
-		return nil
-	})
-	return changed
-}
-
-func migrateAuthorizations(root storage.Bucket, dryRun bool) int {
-	users := map[string]string{}
-	root.Copy("users").Foreach(func(keyBytes, valueBytes []byte) error {
-		if !strings.HasPrefix(string(keyBytes), "user:") {
-			return nil
-		}
-		user := normalUser{}
-		if json.Unmarshal([]byte(strings.TrimPrefix(string(valueBytes), "o:")), &user) == nil && user.Username != "" && user.ID != "" {
-			users[strings.ToLower(user.Username)] = user.ID
-		}
-		return nil
-	})
-	bucket := root.Copy("plugin_user_authorizations")
-	changed := 0
-	bucket.Foreach(func(keyBytes, valueBytes []byte) error {
-		key := string(keyBytes)
-		if strings.TrimSpace(string(valueBytes)) == "" || !strings.HasSuffix(key, ":"+smallcatReadScope) {
-			return nil
-		}
-		rest := strings.TrimSuffix(key, ":"+smallcatReadScope)
-		parts := strings.SplitN(rest, ":", 2)
-		if len(parts) != 2 {
-			return nil
-		}
-		userID := users[strings.ToLower(parts[0])]
-		if userID == "" {
-			return nil
-		}
-		newKey := userID + ":" + parts[1] + ":" + smallcatReadScope
-		if newKey == key || bucket.GetString(newKey) != "" {
-			return nil
-		}
-		changed++
-		if !dryRun {
-			bucket.Set2(newKey, string(valueBytes))
 		}
 		return nil
 	})
@@ -413,71 +356,7 @@ func loadBindings(raw string) normalUserBindings {
 func normalizeBindings(bindings normalUserBindings) normalUserBindings {
 	bindings.QQ = strings.TrimSpace(bindings.QQ)
 	bindings.Telegram = strings.TrimSpace(bindings.Telegram)
-	openids := []string{}
-	if bindings.SmallcatOpenID != "" {
-		openids = appendUnique(openids, bindings.SmallcatOpenID)
-	}
-	for _, openid := range bindings.SmallcatOpenIDs {
-		openids = appendUnique(openids, openid)
-	}
-	bindings.SmallcatOpenIDs = openids
-	if len(openids) > 0 {
-		bindings.SmallcatOpenID = openids[0]
-	} else {
-		bindings.SmallcatOpenID = ""
-	}
 	return bindings
-}
-
-func appendUnique(values []string, value string) []string {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return values
-	}
-	for _, item := range values {
-		if item == value {
-			return values
-		}
-	}
-	return append(values, value)
-}
-
-func mergedSlices(values ...interface{}) []string {
-	out := []string{}
-	for _, value := range values {
-		if rows, ok := stringSlice(value); ok {
-			for _, item := range rows {
-				out = appendUnique(out, item)
-			}
-		}
-	}
-	return out
-}
-
-func stringSlice(value interface{}) ([]string, bool) {
-	switch typed := value.(type) {
-	case []interface{}:
-		out := []string{}
-		for _, item := range typed {
-			if text := strings.TrimSpace(fmt.Sprint(item)); text != "" && text != "<nil>" {
-				out = append(out, text)
-			}
-		}
-		return out, true
-	case string:
-		parts := strings.FieldsFunc(typed, func(r rune) bool {
-			return r == ',' || r == '，' || r == '\n' || r == '\t' || r == ' '
-		})
-		out := []string{}
-		for _, item := range parts {
-			if item = strings.TrimSpace(item); item != "" {
-				out = append(out, item)
-			}
-		}
-		return out, len(out) > 0
-	default:
-		return nil, false
-	}
 }
 
 func firstString(values map[string]interface{}, keys ...string) string {

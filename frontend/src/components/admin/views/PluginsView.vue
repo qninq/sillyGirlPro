@@ -562,8 +562,7 @@ const {
           <div class="plugin-user-open-copy">
             <Typography.Text strong>是否开放为普通用户</Typography.Text>
             <Typography.Text type="secondary">
-              开启后普通用户可在 Home 页面看到该插件，并自行决定是否授权其读取
-              SmallCat 账号列表。
+              开启后普通用户可在 Home 页面看到该插件，自行填写用户表单。
             </Typography.Text>
           </div>
           <Switch

@@ -17,7 +17,6 @@ SillyGirl 的插件系统基于外部脚本运行时。插件使用 JavaScript/N
   - [sender (s)](#sender-s)
   - [Bucket(name)](#bucketname)
   - [QingLong 内联客户端](#qinglong-内联客户端)
-  - [SmallCat 内联客户端](#smallcat-内联客户端)
   - [DaiDai 内联客户端](#daidai-内联客户端)
   - [Cron()](#cron)
   - [其他全局函数](#其他全局函数)
@@ -157,31 +156,26 @@ update_result = await utils.update({"restart": True})
 
 ### 普通用户列表
 
-`user.getUserList()` 提供普通用户及当前插件的授权和绑定状态。`authorized` 只表示当前插件的 `smallcat:read` 授权，运行时会从当前插件上下文判定，不接受插件 UUID 参数。
+`user.getUserList()` 提供普通用户及当前插件的授权和绑定状态。`authorized` 表示当前插件是否对用户开放，运行时会从当前插件上下文判定，不接受插件 UUID 参数。
 
 ```js
-const { container, user } = require("sillygirl");
+const { user } = require("sillygirl");
 
 const users = await user.getUserList();
-const openids = users
+const qqAccounts = users
   .filter((user) => !user.disabled && user.authorized)
-  .flatMap((user) => user.bindings.smallcat_openids);
-
-const accounts = await new container.SmallCat({ id: 1 }).userList();
+  .map((user) => user.bindings.qq);
 ```
 
 ```python
-from sillygirl import container, user
+from sillygirl import user
 
 users = await user.getUserList()
-openids = [
-    openid
+qq_accounts = [
+    user["bindings"]["qq"]
     for user in users
     if not user["disabled"] and user["authorized"]
-    for openid in user["bindings"]["smallcat_openids"]
 ]
-
-accounts = await container.SmallCat({"id": 1}).userList()
 ```
 
 `user.getUserList()` 的每个用户包含：
@@ -195,13 +189,12 @@ accounts = await container.SmallCat({"id": 1}).userList()
   "authorized": true,
   "bindings": {
     "qq": "10001",
-    "telegram": "20002",
-    "smallcat_openids": ["OPENID"]
+    "telegram": "20002"
   }
 }
 ```
 
-未授权或已禁用用户仍会出现在列表中用于判断状态，但 `bindings.smallcat_openids` 会被运行时清空。插件未开放、`status=false` 或源码未检测到 SmallCat 调用时，所有用户的 `authorized` 都为 `false`；插件只能读取当前有效授权用户的 SmallCat openid。
+未开放或已禁用用户仍会出现在列表中用于判断状态，但插件未开放、`status=false` 或插件没有用户表单时，所有用户的 `authorized` 都为 `false`。
 
 ### Bucket 存储
 
@@ -329,9 +322,6 @@ Python 插件可以引入内联客户端，构造方式和 JS 一样，按后台
 ```python
 ql = QingLong({"id": 1})
 envs = await ql.getEnvs({"searchValue": "JD_COOKIE"})
-
-sc = SmallCat({"id": 1})
-code = await sc.getCode({"openid": "openid", "appid": "wx123"})
 
 dd = DaiDai({"id": 1})
 items = await dd.getEnvs({"keyword": "JD_COOKIE"})
@@ -799,13 +789,13 @@ current = await user.getUser({"name": "ACCOUNT"})
 ```js
 const { container } = require("sillygirl");
 
-const all = await container.getList();       // { smallcat, qinglong, daidai }
+const all = await container.getList();       // { qinglong, daidai }
 const qlList = await container.getList("qinglong");
 const ql1 = new container.QingLong({ id: 1 });
 const envs = await ql1.getEnvs();
 ```
 
-`container.getList()` 返回后台已绑定的 smallcat / 青龙 / 呆呆容器数量和只读列表；`container.QingLong`、`container.SmallCat`、`container.DaiDai` 负责继续调用对应面板 API。
+`container.getList()` 返回后台已绑定的青龙 / 呆呆容器数量和只读列表；`container.QingLong`、`container.DaiDai` 负责继续调用对应面板 API。
 
 ### QingLong 内联客户端
 
@@ -877,154 +867,6 @@ ql.deleteEnvs([created[0].id]);
 - `new container.QingLong({ id: 1 })` 只接受对象参数，不支持 `new container.QingLong(1)`。
 - 编号按「青龙容器」页面当前列表顺序，从 `1` 开始。
 - 除 `request` 外，封装方法会在青龙业务 `code != 200` 或 HTTP 非 2xx 时抛出脚本异常。
-
-### SmallCat 内联客户端
-
-`container` 顶层导出负责容器列表和面板客户端。`container.SmallCat` 是 smallcat 面板的脚本内联客户端。先在 Admin 面板左侧「smallcat」中添加地址和 `api_auth`，再在脚本里按页面表格编号创建实例。
-
-```js
-const sc = new container.SmallCat({ id: 1 });
-```
-
-构造参数必须是对象：
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `id` | number/string | 是 | smallcat 页面中的顺序编号，从 `1` 开始 |
-
-实例基础属性：
-
-```js
-sc.id       // 当前编号
-sc.uuid     // 面板内部 UUID
-sc.name     // 面板名称
-sc.address  // smallcat 地址
-```
-
-接口方法：
-
-| 方法 | 对应 smallcat API | 参数 | 返回 |
-|------|-------------------|------|------|
-| `createQr(type)` | `POST /api/qr/start` | 登录来源类型，如 `1` | 原始 API 响应 |
-| `createQr(options)` | `POST /api/qr/start` | `{ type, openid?, proxyNodeId? }` 等对象 | 原始 API 响应 |
-| `checkQr(uuid)` | `GET /api/qr/status?uuid=...` | 二维码 UUID | 原始 API 响应 |
-| `addUser(options)` | `POST /api/accounts/add` | `{ code, displayName?, oauthState?, ... }` | 原始 API 响应 |
-| `rescanUser(options)` | `POST /api/accounts/rescan` | `{ openid, code, displayName?, oauthState? }` | 原始 API 响应 |
-| `userList()` | `GET /api/accounts` | 无 | 原始 API 响应 |
-| `checkUsers(options)` | `POST /api/accounts/status` | `{ openid }`，`openid` 可为字符串或数组 | 原始 API 响应 |
-| `setUserRemark(options)` | `POST /api/accounts/remark` | `{ openid, displayName }` | 原始 API 响应 |
-| `setUserDisabled(options)` | `POST /api/accounts/disable` | `{ openid, disabled }` | 原始 API 响应 |
-| `deleteUser(options)` | `POST /api/accounts/delete` | `{ openid }` | 原始 API 响应 |
-| `proxyList()` | `GET /api/proxies` | 无 | 原始 API 响应 |
-| `testProxy(options)` | `POST /api/proxies/test` | 代理节点对象 | 原始 API 响应 |
-| `addProxy(options)` | `POST /api/proxies/add` | 代理节点对象 | 原始 API 响应 |
-| `deleteProxy(options)` | `POST /api/proxies/delete` | `{ id }` | 原始 API 响应 |
-| `creditBalance()` | `GET /credits/balance` | 无 | 原始 API 响应 |
-| `creditLedger(query?)` | `GET /credits/ledger` | 查询对象或条数，如 `{ limit: 50 }` / `50` | 原始 API 响应 |
-| `getCode(options)` | `POST /wx/code` | `{ openid, appid }` | 原始 API 响应 |
-| `getSession(options)` | `POST /wx/getsession` | `{ openid, appid }` | 原始 API 响应 |
-| `refreshSession(options)` | `POST /wx/refresh` | `{ openid, appid }` | 原始 API 响应 |
-| `getUserInfo(options)` | `POST /wx/getuserinfo` | `{ openid, appid }` | 原始 API 响应 |
-| `getEncryptKey(options)` | `POST /wx/encryptkey` | `{ openid, appid }` | 原始 API 响应 |
-| `getPhoneNumber(options)` | `POST /wx/getphonenumber` | `{ openid, appid }` | 原始 API 响应 |
-| `cloud(options)` | `POST /wx/cloud` | `{ openid, appid, function_name, data }` | 原始 API 响应 |
-| `gateway(options)` | `POST /wx/gateway` | `{ openid, appid, action, env }` 或完整 `domain` | 原始 API 响应 |
-| `qrCodeAuth(options)` | `POST /wx/qrcodeauth` | `{ openid, uuid }` | 原始 API 响应 |
-| `oauth(options)` | `POST /wx/oauth` | `{ openid, appid, redirect_uri, scope?, state?, component_appid? }` 等 | 原始 API 响应 |
-| `translateLink(options)` | `POST /wx/translatelink` | `{ openid, link, scene? }` | 原始 API 响应 |
-| `autoAuth(options)` | `POST /wx/autoauth` | `{ openid }` | 原始 API 响应 |
-| `appMsgExt(options)` | `POST /wx/appmsgext` | `{ openid, article_url }` | 原始 API 响应 |
-| `appMsgLike(options)` | `POST /wx/appmsglike` | `{ openid, article_url }` | 原始 API 响应 |
-| `request(method, path, body, query)` | 任意 smallcat API | 自定义方法、路径、请求体、查询参数 | 原始 API 响应 |
-
-smallcat 运行时不会改写 API 返回。脚本收到的就是 smallcat 原始 JSON，一般结构为：
-
-```js
-{
-  status: true,
-  message: "成功",
-  data: {}
-}
-```
-
-示例：
-
-```js
-const sc = new container.SmallCat({ id: 1 });
-
-const qr = sc.createQr(1);
-if (!qr.status) {
-  s.reply("生成二维码失败：" + qr.message);
-  return;
-}
-
-s.reply("扫码地址：" + qr.data.qrcodeUrl);
-
-const checked = sc.checkQr(qr.data.uuid);
-if (checked.data.state === "confirmed" && checked.data.wxCode) {
-  const saved = sc.addUser({
-    code: checked.data.wxCode,
-    displayName: "备注",
-  });
-  s.reply(saved.message);
-} else {
-  s.reply("当前扫码状态：" + checked.data.state);
-}
-
-const users = sc.userList();
-console.log(users.status, users.message, users.data && users.data.items);
-
-const code = sc.getCode({
-  openid: "用户 openid",
-  appid: "wx1234567890abcdef",
-});
-console.log(code.status, code.message, code.data);
-
-const session = sc.getSession({
-  openid: "用户 openid",
-  appid: "wx1234567890abcdef",
-});
-console.log(session.data && session.data.session);
-
-const refreshed = sc.refreshSession({
-  openid: "用户 openid",
-  appid: "wx1234567890abcdef",
-});
-console.log(refreshed.data && refreshed.data.expireIn);
-
-const userInfo = sc.getUserInfo({
-  openid: "用户 openid",
-  appid: "wx1234567890abcdef",
-});
-console.log(userInfo.status, userInfo.message, userInfo.data);
-
-const phone = sc.getPhoneNumber({
-  openid: "用户 openid",
-  appid: "wx1234567890abcdef",
-});
-console.log(phone.status, phone.message, phone.data);
-
-const oauth = sc.oauth({
-  openid: "用户 openid",
-  appid: "wx2f5d8f9715c59d10",
-  redirect_uri: "https://example.com/callback",
-  scope: "snsapi_userinfo",
-  state: "STATE",
-});
-console.log(oauth.status, oauth.message, oauth.data);
-
-const qrOAuth = sc.qrCodeAuth({
-  openid: "用户 openid",
-  uuid: "二维码 UUID",
-});
-console.log(qrOAuth.status, qrOAuth.message, qrOAuth.data);
-```
-
-注意：
-
-- `new container.SmallCat({ id: 1 })` 只接受对象参数，不支持 `new container.SmallCat(1)`。
-- `addUser` 只接受对象参数，推荐写 `sc.addUser({ code: "xxxxx", displayName: "备注" })`；重扫已有账号使用 `rescanUser`。
-- 只有网络失败、请求体编码失败、JSON 解析失败这类没有 smallcat 原始响应的情况，运行时才会返回 `{ status: false, message: "..." }`。
 
 ### DaiDai 内联客户端
 

@@ -64,8 +64,14 @@ try {
   const chunks = readdirSync(resolve(root, "../core/admin/assets"))
     .filter((name) => /View-.+\.js$/.test(name))
     .sort();
-  if (chunks.length !== 11)
-    throw new Error(`expected 11 lazy view chunks, got ${chunks.length}`);
+  // 期望的懒加载视图数量从源码目录推导，避免每加一个视图就要改这里。
+  const expectedViews = readdirSync(
+    resolve(root, "src/components/admin/views"),
+  ).filter((name) => name.endsWith(".vue")).length;
+  if (chunks.length !== expectedViews)
+    throw new Error(
+      `expected ${expectedViews} lazy view chunks, got ${chunks.length}`,
+    );
   for (const chunk of chunks) results.push(await request(`/assets/${chunk}`));
   const editorChunk = readdirSync(resolve(root, "../core/admin/assets")).find(
     (name) => /^editor-vendor-.+\.js$/.test(name),

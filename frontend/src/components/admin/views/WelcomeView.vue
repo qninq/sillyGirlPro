@@ -23,7 +23,6 @@ const {
   qinglong,
   realScripts,
   restartAfterUpdate,
-  smallcat,
   startOnlineUpdate,
   systemUpdate,
   user,
@@ -73,15 +72,6 @@ const {
             title="青龙容器"
             :value="
               overviewIntegrations.find((item) => item.key === 'qinglong')
-                ?.count || 0
-            " /></Card
-      ></Col>
-      <Col :xs="24" :sm="12" :md="8"
-        ><Card
-          ><Statistic
-            title="smallcat"
-            :value="
-              overviewIntegrations.find((item) => item.key === 'smallcat')
                 ?.count || 0
             " /></Card
       ></Col>

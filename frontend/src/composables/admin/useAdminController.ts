@@ -84,7 +84,7 @@ export function useAdminController() {
     | "masters"
     | "settings";
 
-  type ContainerKind = "qinglong" | "daidai" | "smallcat";
+  type ContainerKind = "qinglong" | "daidai";
   type MessageToolKind = "carry" | "reply" | "messages";
 
   const validPages: PageKey[] = [
@@ -105,7 +105,6 @@ export function useAdminController() {
   const legacyContainerPages: ContainerKind[] = [
     "qinglong",
     "daidai",
-    "smallcat",
   ];
   const legacyMessageToolPages: MessageToolKind[] = [
     "carry",
@@ -309,7 +308,6 @@ export function useAdminController() {
   const overviewIntegrations = computed(() => {
     const defaults = [
       { key: "qinglong", label: "青龙容器" },
-      { key: "smallcat", label: "smallcat" },
       { key: "daidai", label: "呆呆容器" },
     ];
     const rows = user.value?.integrations || {};
@@ -759,15 +757,11 @@ export function useAdminController() {
 
   const {
     normalUsers,
-    normalUserPluginAuthorizations,
     loadNormalUsers,
-    openNormalUserPluginAuthorizations,
     openNormalUser,
-    pluginAuthorizations,
     saveNormalUser,
-    saveNormalUserPluginAuthorization,
     removeNormalUser,
-  } = useNormalUsersAdmin(smallcatOpenids);
+  } = useNormalUsersAdmin();
 
   const {
     isPluginCronTask,
@@ -796,13 +790,6 @@ export function useAdminController() {
     testQinglongPanel,
     saveQinglongPanel,
     removeQinglongPanel,
-    smallcat,
-    smallcatQuotaText,
-    openSmallcatPanel,
-    testSmallcatPanel,
-    saveSmallcatPanel,
-    removeSmallcatPanel,
-    showSmallcatOpenids,
     daidai,
     applyAdminPanels,
     openDaidaiPanel,
@@ -1312,10 +1299,7 @@ export function useAdminController() {
   }
 
   function pluginCanOpen(row: PluginInfo) {
-    return (
-      pluginInstalled(row) &&
-      (row.uses_smallcat === true || row.has_user_form === true)
-    );
+    return pluginInstalled(row) && row.has_user_form === true;
   }
 
   function pluginCanConfigure(row: PluginInfo) {
@@ -2140,21 +2124,18 @@ export function useAdminController() {
     if (Array.isArray(prop?.enum)) return "enum";
     return prop?.type || "string";
   }
-  type PluginPanelKind = "smallcat" | "qinglong" | "daidai";
+  type PluginPanelKind = "qinglong" | "daidai";
   function pluginPanelKind(field: {
     key: string;
     prop?: any;
   }): PluginPanelKind | null {
     const widget = String(field.prop?.["ui:widget"] || "").toLowerCase();
-    if (widget === "smallcat-panel") return "smallcat";
     if (widget === "qinglong-panel") return "qinglong";
     if (widget === "daidai-panel") return "daidai";
     const key = String(field.key || "")
       .toLowerCase()
       .replace(/[^a-z0-9]/g, "");
     const title = String(field.prop?.title || "");
-    if (key === "smallcatid" || /smallcat.*编号/i.test(title))
-      return "smallcat";
     if (key === "qinglongid" || key === "qlid" || /青龙.*编号/.test(title))
       return "qinglong";
     if (key === "daidaiid" || key === "ddid" || /呆呆.*编号/.test(title))
@@ -2164,8 +2145,6 @@ export function useAdminController() {
   function pluginPanelChoices(field: { key: string; prop?: any }) {
     const kind = pluginPanelKind(field);
     let available = 0;
-    if (kind === "smallcat")
-      available = Math.max(smallcat.total, smallcat.rows.length);
     if (kind === "qinglong")
       available = Math.max(qinglong.total, qinglong.rows.length);
     if (kind === "daidai")
@@ -2177,7 +2156,6 @@ export function useAdminController() {
   }
   function pluginPanelEmptyText(field: { key: string; prop?: any }) {
     const labels: Record<PluginPanelKind, string> = {
-      smallcat: "SmallCat",
       qinglong: "青龙",
       daidai: "呆呆",
     };
@@ -2405,7 +2383,6 @@ export function useAdminController() {
         const kind = pluginPanelKind({ key, prop });
         if (kind) panelKinds.add(kind);
       }
-      if (pluginCanOpen(row)) panelKinds.add("smallcat");
       if (panelKinds.size > 0) applyAdminPanels(resource.panels);
       const selected = config || {
         uuid: row.id,
@@ -3216,15 +3193,6 @@ export function useAdminController() {
       label,
     }));
   }
-  function smallcatOpenids(record?: AdminUserRow) {
-    const rows = [] as string[];
-    if (record?.bindings?.smallcat_openid)
-      rows.push(record.bindings.smallcat_openid);
-    for (const item of record?.bindings?.smallcat_openids || []) {
-      if (item) rows.push(item);
-    }
-    return Array.from(new Set(rows.map((item) => item.trim()).filter(Boolean)));
-  }
 
   return {
     VNodes,
@@ -3297,7 +3265,6 @@ export function useAdminController() {
     navigate,
     nodeDeps,
     normalUsers,
-    normalUserPluginAuthorizations,
     oneBotReceiveURL,
     openActiveContainerPanel,
     openActiveMessageTool,
@@ -3310,12 +3277,10 @@ export function useAdminController() {
     openMessage,
     openNewMarketPluginEditor,
     openNormalUser,
-    openNormalUserPluginAuthorizations,
     openPluginDetail,
     openPluginSourceManager,
     openQinglongPanel,
     openReply,
-    openSmallcatPanel,
     openTask,
     openUninstallPluginModal,
     optionMap,
@@ -3347,7 +3312,6 @@ export function useAdminController() {
     pluginTriggerText,
     pluginUpgradable,
     plugins,
-    pluginAuthorizations,
     qinglong,
     qqGuildWebhookURL,
     realScripts,
@@ -3363,7 +3327,6 @@ export function useAdminController() {
     removeQinglongPanel,
     removeReply,
     removeSettingsOption,
-    removeSmallcatPanel,
     removeStorageBucket,
     removeTask,
     replies,
@@ -3379,12 +3342,10 @@ export function useAdminController() {
     saveMaster,
     saveMessageRow,
     saveNormalUser,
-    saveNormalUserPluginAuthorization,
     savePluginConfig,
     saveQinglongPanel,
     saveReply,
     saveSettings,
-    saveSmallcatPanel,
     saveStorageRow,
     saveTask,
     schemaFields,
@@ -3400,10 +3361,6 @@ export function useAdminController() {
     setupAdmin,
     setupModel,
     setupRequired,
-    showSmallcatOpenids,
-    smallcat,
-    smallcatOpenids,
-    smallcatQuotaText,
     startClawbotLogin,
     startOnlineUpdate,
     storageBackendOptions,
@@ -3415,7 +3372,6 @@ export function useAdminController() {
     tasks,
     testDaidaiPanel,
     testQinglongPanel,
-    testSmallcatPanel,
     togglePluginEditorTheme,
     togglePluginStatus,
     toggleTaskEnabled,

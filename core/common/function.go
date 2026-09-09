@@ -42,7 +42,6 @@ type Function struct {
 	HasForm                   bool        `json:"has_form"`
 	HasUserForm               bool        `json:"has_user_form"`
 	ConfigRegistered          bool        `json:"config_registered"`
-	UsesSmallCat              bool        `json:"uses_smallcat"`
 	Carry                     bool        `json:"carry"`
 	Messages                  interface{} `json:"messages"`
 	Classes                   []string    `json:"-"`

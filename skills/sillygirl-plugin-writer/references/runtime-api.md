@@ -101,7 +101,6 @@ Construct integrations with object parameters:
 
 ```js
 const qinglong = new container.QingLong({ id: 1 });
-const smallCat = new container.SmallCat({ id: 1 });
 const daiDai = new container.DaiDai({ id: 1 });
 ```
 

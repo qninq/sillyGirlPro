@@ -346,11 +346,9 @@ func overviewAdapterStatuses() []map[string]interface{} {
 
 func overviewIntegrationStatuses() map[string]interface{} {
 	qinglongPanels := getQinglongPanels()
-	smallcatPanels := getSmallcatPanels()
 	daidaiPanels := getDaidaiPanels()
 	return map[string]interface{}{
 		"qinglong": overviewPanelStatus("青龙容器", len(qinglongPanels), countOnlineQinglongPanels(qinglongPanels)),
-		"smallcat": overviewPanelStatus("smallcat", len(smallcatPanels), countOnlineSmallcatPanels(smallcatPanels)),
 		"daidai":   overviewPanelStatus("呆呆容器", len(daidaiPanels), countOnlineDaidaiPanels(daidaiPanels)),
 	}
 }
@@ -365,16 +363,6 @@ func overviewPanelStatus(label string, count int, onlineCount int) map[string]in
 }
 
 func countOnlineQinglongPanels(panels []QinglongPanel) int {
-	count := 0
-	for _, panel := range panels {
-		if panel.Status == "online" {
-			count++
-		}
-	}
-	return count
-}
-
-func countOnlineSmallcatPanels(panels []SmallcatPanel) int {
 	count := 0
 	for _, panel := range panels {
 		if panel.Status == "online" {

@@ -34,7 +34,7 @@ func init() {
 			// dialog, so the combined resource deliberately returns a nil config.
 			if ctx.Query("include") == "panels" {
 				plugin := installedPluginByUUID(strings.TrimSpace(uuid))
-				if plugin != nil && (plugin.UsesSmallCat || plugin.HasUserForm) {
+				if plugin != nil && plugin.HasUserForm {
 					ApiOK(ctx, gin.H{"config": nil, "panels": getAdminPanels(false)})
 					return
 				}

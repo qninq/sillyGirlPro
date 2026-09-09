@@ -795,7 +795,6 @@ function runtimePanelIndex(ref) {
     return Number.isInteger(index) ? index : 0;
 }
 const containerDefinitions = {
-    smallcat: { key: "smallcat_panels", label: "smallcat" },
     qinglong: { key: "qinglong_panels", label: "青龙" },
     daidai: { key: "daidai_panels", label: "呆呆" },
 };
@@ -803,8 +802,6 @@ function normalizeContainerKind(kind) {
     const value = String(kind || "").trim().toLowerCase();
     if (!value)
         return "";
-    if (value === "smallcat" || value === "small_cat" || value === "sc")
-        return "smallcat";
     if (value === "qinglong" || value === "qing_long" || value === "ql" || value === "青龙")
         return "qinglong";
     if (value === "daidai" || value === "dai_dai" || value === "dd" || value === "呆呆")
@@ -824,11 +821,10 @@ function publicContainerPanel(panel, index) {
 function createContainerApi() {
     return {
         QingLong,
-        SmallCat,
         DaiDai,
         async getList(kind) {
             const wanted = normalizeContainerKind(kind);
-            const kinds = wanted ? [wanted] : ["smallcat", "qinglong", "daidai"];
+            const kinds = wanted ? [wanted] : ["qinglong", "daidai"];
             const result = {};
             for (const item of kinds) {
                 const definition = containerDefinitions[item];
@@ -990,183 +986,6 @@ class QingLong {
     async systemNotify(title, content) {
         const result = await this.request("PUT", "/system/notify", { title, content });
         return result.data ?? result;
-    }
-}
-function smallcatAccountOpenID(value) {
-    if (!value || typeof value !== "object" || Array.isArray(value))
-        return "";
-    return String(value.openid ?? value.openId ?? value.open_id ?? "").trim();
-}
-function filterSmallcatAccountPayload(value, allowed) {
-    if (Array.isArray(value)) {
-        return value.map((item) => filterSmallcatAccountPayload(item, allowed)).filter((item) => item !== undefined);
-    }
-    if (!value || typeof value !== "object")
-        return value;
-    const openid = smallcatAccountOpenID(value);
-    if (openid && !allowed.has(openid))
-        return undefined;
-    const result = {};
-    for (const [key, item] of Object.entries(value)) {
-        const filtered = filterSmallcatAccountPayload(item, allowed);
-        if (filtered !== undefined)
-            result[key] = filtered;
-    }
-    return result;
-}
-class SmallCat {
-    id = 0;
-    uuid = "";
-    name = "";
-    address = "";
-    panel;
-    ready;
-    constructor(options) {
-        this.ready = this.init(options);
-    }
-    async init(options) {
-        const panels = await readRuntimePanels("smallcat_panels");
-        const index = runtimePanelIndex(options);
-        if (index < 1 || index > panels.length) {
-            throw new Error(`smallcat 编号 ${index || ""} 不存在`);
-        }
-        this.panel = panels[index - 1];
-        this.id = index;
-        this.uuid = this.panel.id || "";
-        this.name = this.panel.name || "";
-        this.address = String(this.panel.address || "").replace(/\/+$/, "");
-    }
-    async request(method, path, body, query) {
-        await this.ready;
-        const headers = { auth: String(this.panel.api_auth || "") };
-        if (body !== undefined && body !== null)
-            headers["Content-Type"] = "application/json";
-        const response = await fetch(`${this.address}${normalizeRuntimePath(path, "")}${queryString(query || {})}`, {
-            method: String(method || "GET").toUpperCase(),
-            headers,
-            body: body === undefined || body === null ? undefined : JSON.stringify(body),
-        });
-        const text = await response.text();
-        if (!String(text || "").trim())
-            return {};
-        try {
-            return JSON.parse(text);
-        }
-        catch (err) {
-            const start = text.indexOf("{");
-            const end = text.lastIndexOf("}");
-            if (start >= 0 && end > start) {
-                try {
-                    return JSON.parse(text.slice(start, end + 1));
-                }
-                catch (_) { }
-            }
-            throw new Error("smallcat 接口返回非 JSON：" + String(text || "").slice(0, 120));
-        }
-    }
-    post(path, options) {
-        return this.request("POST", path, Object.assign({}, options || {}));
-    }
-    createQr(type) {
-        const body = typeof type === "object" && type !== null ? type : { type };
-        return this.request("POST", "/api/qr/start", body);
-    }
-    checkQr(uuid) {
-        return this.request("GET", "/api/qr/status", undefined, { uuid });
-    }
-    addUser(options) {
-        return this.post("/api/accounts/add", options);
-    }
-    rescanUser(options) {
-        return this.post("/api/accounts/rescan", options);
-    }
-    async authorizedUsers() {
-        return await new Bucket("__plugin_smallcat_authorized__").get("records", {
-            enforced: false,
-            scope: "smallcat:read",
-            openids: [],
-            users: [],
-        });
-    }
-    async userList() {
-        const authorization = await this.authorizedUsers();
-        const payload = await this.request("GET", "/api/accounts");
-        if (!authorization?.enforced)
-            return payload;
-        const allowed = new Set((authorization.openids || []).map((item) => String(item || "").trim()).filter(Boolean));
-        return filterSmallcatAccountPayload(payload, allowed);
-    }
-    checkUsers(options) {
-        return this.post("/api/accounts/status", options);
-    }
-    setUserRemark(options) {
-        return this.post("/api/accounts/remark", options);
-    }
-    setUserDisabled(options) {
-        return this.post("/api/accounts/disable", options);
-    }
-    deleteUser(options) {
-        return this.post("/api/accounts/delete", options);
-    }
-    proxyList() {
-        return this.request("GET", "/api/proxies");
-    }
-    testProxy(options) {
-        return this.post("/api/proxies/test", options);
-    }
-    addProxy(options) {
-        return this.post("/api/proxies/add", options);
-    }
-    deleteProxy(options) {
-        return this.post("/api/proxies/delete", options);
-    }
-    creditBalance() {
-        return this.request("GET", "/credits/balance");
-    }
-    creditLedger(query = { limit: 50 }) {
-        return this.request("GET", "/credits/ledger", undefined, typeof query === "number" ? { limit: query } : query);
-    }
-    getCode(options) {
-        return this.post("/wx/code", options);
-    }
-    getSession(options) {
-        return this.post("/wx/getsession", options);
-    }
-    refreshSession(options) {
-        return this.post("/wx/refresh", options);
-    }
-    getUserInfo(options) {
-        return this.post("/wx/getuserinfo", options);
-    }
-    getEncryptKey(options) {
-        return this.post("/wx/encryptkey", options);
-    }
-    getPhoneNumber(options) {
-        return this.post("/wx/getphonenumber", options);
-    }
-    cloud(options) {
-        return this.post("/wx/cloud", options);
-    }
-    gateway(options) {
-        return this.post("/wx/gateway", options);
-    }
-    qrCodeAuth(options) {
-        return this.post("/wx/qrcodeauth", options);
-    }
-    oauth(options) {
-        return this.post("/wx/oauth", options);
-    }
-    translateLink(options) {
-        return this.post("/wx/translatelink", options);
-    }
-    autoAuth(options) {
-        return this.post("/wx/autoauth", options);
-    }
-    appMsgExt(options) {
-        return this.post("/wx/appmsgext", options);
-    }
-    appMsgLike(options) {
-        return this.post("/wx/appmsglike", options);
     }
 }
 class DaiDai {

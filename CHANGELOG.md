@@ -1,3 +1,27 @@
+## v1.2.3 - 2026-09-09
+
+### 移除 SmallCat 面板功能
+
+本次更新**完整移除 SmallCat（smallcat）面板集成**，项目此后仅支持青龙（qinglong）与呆呆（daidai）两类容器面板。
+
+- **管理后台**：容器管理页面只保留青龙/呆呆两类面板的增删改查与连接检测；`GET /api/admin/panels` 只返回 `qinglong`、`daidai` 两组集合；删除 `GET /api/admin/panels/:id/accounts` 接口。
+- **用户端**：删除普通用户的 SmallCat 相关接口（smallcat-panels、smallcat-login-sessions、smallcat-accounts、smallcat-verification-codes、插件 smallcat-accounts 与授权接口）及用户页面的「smallcat 账号」卡片、扫码登录弹窗；账号绑定只保留 QQ 与 Telegram。
+- **插件授权**：删除 `__plugin_smallcat_authorized__` 运行时桶与 `smallcat:read` 授权范围；插件开放条件改由 `HasUserForm`（是否声明用户表单）单独决定，用户表单功能不受影响。
+- **插件运行时**：`proto3/sillygirl.js`、`sillygirl.py`、`sillygirl.d.ts` 删除 `container.SmallCat` 客户端类及其全部方法；`container.getList()` 只返回青龙/呆呆；用户绑定结构移除 `smallcat_openids` 字段；插件源码不再检测 SmallCat 调用（`UsesSmallCat` 字段删除）。
+- **面板状态检测**：刷新面板状态的能力从 smallcat 扩展到青龙/呆呆——新增 `refreshQinglongPanelsStatus`、`refreshDaidaiPanelsStatus` 并发检测，刷新面板列表时同步更新在线状态。
+- **数据迁移**：启动迁移不再处理 smallcat 面板桶与 smallcat 授权数据；用户绑定迁移不再合并 `smallcat_openid(s)` 字段；旧插件配置中的 `smallcat_auth` 键会在迁移时被清理。
+- **文档**：插件编写指南、API 文档、插件编写 skill 同步删除 SmallCat 章节，容器相关说明只保留青龙/呆呆。
+- **残留清理**：重新构建前端嵌入资产并清除含 SmallCat 引用的旧构建产物（构建输出目录不自动清空）；资产冒烟脚本的懒加载视图数量改为从源码目录推导（跟随视图增减，不再硬编码）；`TestRegisterNodePluginAndUserForms` 测试夹具改为测试内自建，不再依赖被 gitignore 的 `plugins/userFormTest.js` 本地文件。
+
+### 发布前审计修复
+
+- **面板状态刷新**：修复刷新面板状态时成功结果被丢弃的问题——面板从离线恢复后刷新仍显示 `offline`；现在成功时回写在线状态与「最后检测」时间，失败时也更新检测时间。
+- **呆呆面板刷新按钮**：修复呆呆容器页签的「刷新」不触发状态检测的问题（此前只有青龙页签会调用状态检测接口）；两个页签的刷新现在都会并发检测青龙/呆呆面板在线状态。
+- **用户插件列表**：删除 `GET /api/user/plugins` 响应中恒为空的 `authorized`、`authorization_scope` 死字段，直接返回开放插件记录。
+- **文档**：插件编写 skill 的质量门槛移除已删除的 SmallCat 方法 `checkQr` 引用。
+
+> 已有 smallcat 面板数据与用户 openid 绑定将不再被读取；如后续需要清理，可在管理后台手动删除，或保留（不影响运行）。
+
 ## v1.2.2 - 2026-09-09
 
 ### 项目迁移

@@ -24,8 +24,30 @@ func TestRegisterNodePluginAndUserForms(t *testing.T) {
 		pluginUserFormSchemas.Set(uuid, nil)
 	})
 
-	path := filepath.Join("..", "plugins", "userFormTest.js")
-	if _, err := os.Stat(path); err != nil {
+	source := `const { plugin, user } = require("sillygirl");
+
+new plugin.Form({
+  enabled: plugin.Form.boolean().title("启用此功能").default(false),
+});
+
+new user.Form({
+  phone: user.Form.string()
+    .title("手机号")
+    .required()
+    .err("请输入手机号")
+    .match(/^1[3-9]\d{9}$/)
+    .err("手机号格式错误"),
+  openid: user.Form.string().title("OpenID"),
+  remark: user.Form.string()
+    .title("备注")
+    .match(/^.{0,20}$/)
+    .err("备注最多20个字符")
+    .default(""),
+}).multiple(3).keyBy(["phone"]);
+`
+	dir := t.TempDir()
+	path := filepath.Join(dir, "userFormTest.js")
+	if err := os.WriteFile(path, []byte(source), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := registerNodePluginConfigSchema(path, uuid); err != nil {

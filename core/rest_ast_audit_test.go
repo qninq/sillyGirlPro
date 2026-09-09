@@ -322,7 +322,7 @@ func TestUserAPIRoutesRequireAuthentication(t *testing.T) {
 			return true
 		})
 	}
-	if checked < 18 {
+	if checked < 11 {
 		t.Fatalf("user auth audit covered only %d routes", checked)
 	}
 }
