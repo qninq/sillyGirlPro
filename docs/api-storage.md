@@ -117,6 +117,7 @@ Base URL: `http://host:port/api`
 | `GET`, `POST` | `/api/admin/scripts/:id` |
 | `POST` | `/api/admin/scripts/:id/deletions` |
 | `GET`, `POST` | `/api/admin/plugin-market/sources` |
+| `POST` | `/api/admin/plugin-market/source-status/*address` |
 | `POST` | `/api/admin/plugin-market/source-deletions/*address` |
 | `GET` | `/api/admin/plugin-market/plugins` |
 | `POST` | `/api/admin/plugin-market-snapshots` |
@@ -147,6 +148,11 @@ Base URL: `http://host:port/api`
 
 - `POST /api/admin/local-plugins/:id/status` 请求体为 `{ "status": true|false }`，只修改源码顶部 `status` 注释并重载插件；`module=true` 的依赖模块没有独立运行开关。
 - `GET /api/admin/local-plugins/:id/dependents` 返回同发布者目录内通过 `depe` 引用该模块的插件列表，删除或卸载被引用模块会返回冲突。
+
+插件市场源接口：
+
+- `GET /api/admin/plugin-market/sources` 返回 `[{ "address": "...", "disabled": true|false }]` 对象数组；`POST` 请求体为 `{ "address": "..." }` 新增源。
+- `POST /api/admin/plugin-market/source-status/*address` 请求体为 `{ "status": true|false }`（true 为启用），切换源的启用/禁用状态；禁用的源不再参与插件市场加载与展示，禁用列表持久化存储（`plugin_source_disabled` 设置键），删除源时同步清理其禁用记录。
 
 应用脚本接口面向管理后台「插件开发」页面，管理本地应用脚本（消息响应脚本与启动任务/常驻服务/定时任务等独立脚本，以及全部 `.ts`/`.go` 占位文件），页面按语言分类展示全部脚本类型：
 

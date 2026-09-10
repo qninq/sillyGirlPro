@@ -4,15 +4,11 @@ import {
   ArrowUp,
   CloudDownload,
   Home,
-  Moon,
   Plus,
   RefreshCw,
-  Save,
   Search,
   Settings,
-  Sun,
   Trash2,
-  Wand2,
 } from "lucide-vue-next";
 import Button from "ant-design-vue/es/button";
 import Empty from "ant-design-vue/es/empty";
@@ -36,19 +32,16 @@ import { python } from "@codemirror/lang-python";
 import { ref } from "vue";
 import { useAdminViewContext } from "../adminViewContext";
 import PluginConfigModal from "../PluginConfigModal.vue";
+import PluginEditorModal from "../PluginEditorModal.vue";
 import PluginUninstallModal from "../PluginUninstallModal.vue";
 
 const {
   addPluginSource,
   cancelUninstallPluginModal,
-  closeMarketPluginEditor,
   confirmUninstallPlugin,
-  deleteMarketPluginEditor,
   fieldOptions,
   fieldType,
   filterPluginClassOption,
-  formatMarketPluginEditor,
-  handlePluginEditorOpenChange,
   installPlugin,
   loadPlugins,
   openMarketPluginConfig,
@@ -64,8 +57,6 @@ const {
   pluginConfigFieldVisible,
   pluginConfigs,
   pluginDependencies,
-  pluginEditor,
-  pluginEditorHost,
   pluginHasSchedule,
   pluginIconIsImage,
   pluginInitial,
@@ -81,13 +72,11 @@ const {
   pluginUpgradable,
   plugins,
   removePluginSource,
-  saveMarketPluginEditor,
+  togglePluginSourceStatus,
   savePluginConfig,
   schemaFields,
   searchPluginsNow,
   settings,
-  syncPluginEditorLanguage,
-  togglePluginEditorTheme,
   togglePluginStatus,
   user,
 } = useAdminViewContext();
@@ -213,7 +202,7 @@ const {
               :title="`${record.title || record.id}启用状态`"
               :aria-label="`${record.title || record.id}启用状态`"
               @change="
-                (checked: boolean) => togglePluginStatus(record, checked)
+                (checked: unknown) => togglePluginStatus(record, checked === true)
               "
             />
             <Button
@@ -280,103 +269,7 @@ const {
     </Spin>
   </section>
 
-  <Modal
-    v-model:open="pluginEditor.open"
-    :title="
-      pluginEditor.isNew
-        ? '新增本地插件'
-        : `编辑插件：${pluginEditor.title || pluginEditor.id}`
-    "
-    width="1080px"
-    :footer="null"
-    :destroy-on-close="true"
-    @cancel="closeMarketPluginEditor"
-    @after-open-change="handlePluginEditorOpenChange"
-  >
-    <Spin :spinning="pluginEditor.loading">
-      <Space direction="vertical" style="width: 100%" size="middle">
-        <Alert
-          type="info"
-          show-icon
-          message="本地新增插件会自动作为非公开插件进入插件市场；保存前必须包含 [title: xxx]、[name: 文件名]、[desc: xxx]、[version: vx.y.z]，以及 [rule: xxx] 或 [cron: xxx]/[on_start: true]/[web: true]/[module: true]。"
-        />
-        <Form layout="inline" class="plugin-editor-meta">
-          <Form.Item
-            label="插件名称"
-            required
-            extra="新增时必须和源码里的 [name: xxx] 一致"
-          >
-            <Input
-              id="plugin-editor-name"
-              name="plugin-editor-name"
-              v-model:value="pluginEditor.name"
-              style="width: 260px"
-              placeholder="例如 localPlugin"
-              :disabled="pluginEditor.installed && !pluginEditor.isNew"
-              @input="pluginEditor.name = $event.target.value"
-              @change="pluginEditor.name = $event.target.value"
-            />
-          </Form.Item>
-          <Form.Item label="类型" required>
-            <Select
-              id="plugin-editor-type"
-              v-model:value="pluginEditor.type"
-              style="width: 160px"
-              :options="[
-                { label: 'NodeJS', value: 'node' },
-                { label: 'Python', value: 'python' },
-              ]"
-              @change="syncPluginEditorLanguage"
-            />
-          </Form.Item>
-          <Form.Item>
-            <Tag :color="pluginEditor.installed ? 'green' : 'blue'">{{
-              pluginEditor.installed ? "本地已安装" : "未安装/远程源码"
-            }}</Tag>
-          </Form.Item>
-          <Form.Item>
-            <Button @click="togglePluginEditorTheme">
-              <template #icon
-                ><Moon v-if="pluginEditor.theme === 'dark'" :size="16" /><Sun
-                  v-else
-                  :size="16"
-              /></template>
-              {{ pluginEditor.theme === "dark" ? "黑底" : "白底" }}
-            </Button>
-          </Form.Item>
-        </Form>
-        <div
-          ref="pluginEditorHost"
-          class="script-code-editor plugin-market-code-editor"
-          :class="{
-            'plugin-market-code-editor-dark': pluginEditor.theme === 'dark',
-            'plugin-market-code-editor-light': pluginEditor.theme === 'light',
-          }"
-        ></div>
-        <Space style="justify-content: flex-end; width: 100%">
-          <Popconfirm
-            v-if="pluginEditor.installed && !pluginEditor.isNew"
-            title="确认删除这个本地插件文件？"
-            @confirm="deleteMarketPluginEditor"
-          >
-            <Button danger :loading="pluginEditor.deleting"
-              ><template #icon><Trash2 :size="16" /></template>删除</Button
-            >
-          </Popconfirm>
-          <Button @click="formatMarketPluginEditor"
-            ><template #icon><Wand2 :size="16" /></template>格式化</Button
-          >
-          <Button @click="closeMarketPluginEditor">取消</Button>
-          <Button
-            type="primary"
-            :loading="pluginEditor.saving"
-            @click="saveMarketPluginEditor"
-            ><template #icon><Save :size="16" /></template>保存</Button
-          >
-        </Space>
-      </Space>
-    </Spin>
-  </Modal>
+  <PluginEditorModal />
 
   <Modal
     :open="plugins.sourceModal"
@@ -410,12 +303,29 @@ const {
       <Table
         row-key="address"
         size="small"
-        :data-source="plugins.sources.map((address) => ({ address }))"
+        :data-source="plugins.sources"
         :pagination="false"
       >
         <Table.Column title="现有插件源" data-index="address" ellipsis>
-          <template #default="{ text }">
-            <Typography.Text>{{ text }}</Typography.Text>
+          <template #default="{ text, record }">
+            <Typography.Text :delete="record.disabled" :type="record.disabled ? 'secondary' : undefined">
+              {{ text }}
+            </Typography.Text>
+          </template>
+        </Table.Column>
+        <Table.Column title="状态" :width="96">
+          <template #default="{ record }">
+            <button
+              type="button"
+              class="plugin-source-status-badge"
+              :class="{ 'plugin-source-status-badge--disabled': record.disabled }"
+              :aria-label="`切换插件源 ${record.address} 状态`"
+              :title="record.disabled ? '点击启用' : '点击禁用'"
+              :disabled="plugins.sourceToggling[record.address]"
+              @click="togglePluginSourceStatus(record)"
+            >
+              {{ record.disabled ? "禁用" : "启用" }}
+            </button>
           </template>
         </Table.Column>
         <Table.Column title="操作" :width="120">

@@ -1764,6 +1764,9 @@ a.ant-typography,
 }
 
 .scripts-total-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
   font-size: 14px;
   font-weight: 700;
@@ -1771,6 +1774,11 @@ a.ant-typography,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.scripts-total-title svg {
+  flex: 0 0 auto;
+  color: #0958d9;
 }
 
 .scripts-total-badge {
@@ -2005,7 +2013,55 @@ a.ant-typography,
   background: #f0fce3;
 }
 
+.scripts-list-status:not(.on) {
+  background: #fff1f0;
+  border-color: #ffa39e;
+  color: #cf1322;
+}
+
+.scripts-list-status:not(.on):hover {
+  background: #ffccc7;
+}
+
 .scripts-list-status:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* 管理插件源弹窗的启用/禁用徽章（与插件开发页状态徽章同风格） */
+.plugin-source-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid #b7eb8f;
+  border-radius: 6px;
+  background: #f6ffed;
+  color: #389e0d;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 20px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.plugin-source-status-badge:hover {
+  background: #f0fce3;
+}
+
+.plugin-source-status-badge--disabled {
+  background: #fff1f0;
+  border-color: #ffa39e;
+  color: #cf1322;
+}
+
+.plugin-source-status-badge--disabled:hover {
+  background: #ffccc7;
+}
+
+.plugin-source-status-badge:disabled {
   cursor: not-allowed;
   opacity: 0.6;
 }
@@ -2075,8 +2131,82 @@ a.ant-typography,
   min-height: 0;
 }
 
+.scripts-editor-status {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 0 0 auto;
+  padding: 4px 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: #111827;
+  font-size: 12px;
+  color: #94a3b8;
+  overflow: hidden;
+}
+
+/* 编辑器白底主题时状态栏同步改浅色 */
+.scripts-code-editor.plugin-market-code-editor-light + .scripts-editor-status {
+  border-top-color: #edf0f5;
+  background: #fafbfc;
+  color: #6b7280;
+}
+
+.scripts-editor-status > span {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* 路径与行数字符数：跟随内容自然宽度，路径超长时省略，统计信息跟在路径后不靠右 */
+.scripts-editor-status .mono {
+  min-width: 0;
+  flex: 0 1 auto !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.scripts-editor-status .scripts-editor-stats {
+  margin-left: -7px; /* 抵消一个 gap，视觉上紧跟路径 */
+}
+
 .scripts-code-editor .cm-editor {
   height: 100%;
+}
+
+/* 编辑器滚动条：细且浅 */
+.scripts-code-editor .cm-scroller {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+}
+
+.scripts-code-editor .cm-scroller::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scripts-code-editor .cm-scroller::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 3px;
+}
+
+.scripts-code-editor .cm-scroller::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.26);
+}
+
+.scripts-code-editor .cm-scroller::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* 白底主题滚动条改浅灰 */
+.scripts-code-editor.plugin-market-code-editor-light .cm-scroller {
+  scrollbar-color: rgba(0, 0, 0, 0.14) transparent;
+}
+
+.scripts-code-editor.plugin-market-code-editor-light .cm-scroller::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.14);
+}
+
+.scripts-code-editor.plugin-market-code-editor-light .cm-scroller::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.26);
 }
 
 .scripts-empty {

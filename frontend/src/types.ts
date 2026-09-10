@@ -96,6 +96,11 @@ export type PluginInfo = {
   missing_module_dependencies?: string[];
 };
 
+export type PluginSourceInfo = {
+  address: string;
+  disabled: boolean;
+};
+
 export type AppScriptInfo = {
   id: string;
   title: string;

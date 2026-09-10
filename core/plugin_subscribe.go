@@ -25,6 +25,7 @@ import (
 )
 
 const pluginSourceReposKey = "plugin_source_repos"
+const pluginSourceDisabledKey = "plugin_source_disabled"
 const pluginSourceGithubProxyKey = "plugin_source_github_proxy"
 const pluginSourceGithubProxyOptionsKey = "plugin_source_github_proxy_options"
 const defaultPluginSourceRepo = "https://github.com/qninq/sillyGirlPro_Plugins"
@@ -38,6 +39,11 @@ var builtinGithubAccelerators = []string{
 	"http://kr1-proxy.gitwarp.top:8081",
 	"http://kr2-proxy.gitwarp.top:9980",
 	"http://jp1-proxy.gitwarp.top:8123",
+}
+
+type PluginSourceEntry struct {
+	Address   string `json:"address"`
+	Disabled  bool   `json:"disabled"`
 }
 
 type RequestPluginResult struct {
@@ -58,7 +64,7 @@ type RequestPluginResult struct {
 	Time     time.Time             `json:"time"`
 	Class    map[string]int        `json:"class"`
 	Origins  map[string]string     `json:"origins"`
-	Sources  []string              `json:"sources,omitempty"`
+	Sources  []PluginSourceEntry     `json:"sources,omitempty"`
 	Settings []*PluginConfigRecord `json:"settings,omitempty"`
 }
 
@@ -196,6 +202,9 @@ func pluginMatchesKeyword(plugin *common.Function, keyword string) bool {
 func initPluginList() {
 	list := []*common.Function{}
 	for _, source := range pluginSourceAddresses() {
+		if pluginSourceDisabled(source) {
+			continue
+		}
 		items, err := pluginSourceItems(source)
 		if err != nil {
 			console.Error("加载插件源失败 %s: %v", source, err)
@@ -213,7 +222,7 @@ var plugin_downloads = MakeBucket("plugin_downloads")
 
 func initWebPluginList() {
 	GinApi(GET, "/api/admin/plugin-market/sources", RequireAuth, func(ctx *gin.Context) {
-		ApiOK(ctx, pluginSourceAddresses())
+		ApiOK(ctx, pluginSourceEntries())
 	})
 	GinApi(GET, "/api/admin/plugin-market/github-proxy", RequireAuth, func(ctx *gin.Context) {
 		proxy := githubAcceleratorPrefix()
@@ -320,8 +329,42 @@ func initWebPluginList() {
 			return
 		}
 		savePluginSourceAddresses(next)
+		if err := savePluginSourceDisabled(disabledWithoutAddress(address)); err != nil {
+			ApiInternalError(ctx, err.Error())
+			return
+		}
 		setPluginMarketItems(listPluginSources())
 		ApiOK(ctx, nil)
+	})
+	GinApi(POST, "/api/admin/plugin-market/source-status/*address", RequireAuth, func(ctx *gin.Context) {
+		address := normalizePluginSourceAddress(strings.TrimPrefix(ctx.Param("address"), "/"))
+		payload := map[string]interface{}{}
+		if err := ctx.ShouldBindJSON(&payload); err != nil {
+			ApiFail(ctx, err.Error())
+			return
+		}
+		status, ok := payload["status"].(bool)
+		if !ok {
+			ApiUnprocessable(ctx, "status 必须是布尔值")
+			return
+		}
+		found := false
+		for _, source := range pluginSourceAddresses() {
+			if source == address {
+				found = true
+				break
+			}
+		}
+		if !found {
+			ApiNotFound(ctx, "插件源不存在")
+			return
+		}
+		if err := savePluginSourceDisabled(withPluginSourceDisabled(address, !status)); err != nil {
+			ApiInternalError(ctx, err.Error())
+			return
+		}
+		setPluginMarketItems(listPluginSources())
+		ApiOK(ctx, gin.H{"address": address, "status": status})
 	})
 	GinApi(GET, "/api/plugin-market/plugins", handlePluginMarketPlugins)
 }
@@ -574,7 +617,7 @@ func includePluginMarketResources(ctx *gin.Context, response *RequestPluginResul
 		include[strings.TrimSpace(name)] = true
 	}
 	if include["sources"] {
-		response.Sources = pluginSourceAddresses()
+		response.Sources = pluginSourceEntries()
 	}
 	if include["settings"] {
 		response.Settings = getPluginConfigRecords()
@@ -641,6 +684,9 @@ func localPrivatePlugins(remote []*common.Function, installed []*common.Function
 func listPluginSources() []*common.Function {
 	list := []*common.Function{}
 	for _, source := range pluginSourceAddresses() {
+		if pluginSourceDisabled(source) {
+			continue
+		}
 		items, err := pluginSourceItems(source)
 		if err != nil {
 			continue
@@ -673,6 +719,69 @@ func pluginSourceAddresses() []string {
 
 func savePluginSourceAddresses(sources []string) {
 	sillyGirl.Set(pluginSourceReposKey, string(utils.JsonMarshal(sources)))
+}
+
+func pluginSourceDisabledList() []string {
+	raw := strings.TrimSpace(sillyGirl.GetString(pluginSourceDisabledKey))
+	if raw == "" {
+		return nil
+	}
+	list := []string{}
+	if err := json.Unmarshal([]byte(strings.TrimPrefix(raw, "o:")), &list); err != nil {
+		return nil
+	}
+	out := []string{}
+	for _, address := range list {
+		normalized := normalizePluginSourceAddress(address)
+		if normalized != "" && !Contains(out, normalized) {
+			out = append(out, normalized)
+		}
+	}
+	return out
+}
+
+func pluginSourceDisabled(address string) bool {
+	return Contains(pluginSourceDisabledList(), normalizePluginSourceAddress(address))
+}
+
+func savePluginSourceDisabled(disabled []string) error {
+	sillyGirl.Set(pluginSourceDisabledKey, string(utils.JsonMarshal(disabled)))
+	return nil
+}
+
+func withPluginSourceDisabled(address string, disabled bool) []string {
+	list := pluginSourceDisabledList()
+	address = normalizePluginSourceAddress(address)
+	out := []string{}
+	for _, item := range list {
+		if item != address {
+			out = append(out, item)
+		}
+	}
+	if disabled {
+		out = append(out, address)
+	}
+	return out
+}
+
+func disabledWithoutAddress(address string) []string {
+	address = normalizePluginSourceAddress(address)
+	out := []string{}
+	for _, item := range pluginSourceDisabledList() {
+		if item != address {
+			out = append(out, item)
+		}
+	}
+	return out
+}
+
+func pluginSourceEntries() []PluginSourceEntry {
+	sources := pluginSourceAddresses()
+	entries := make([]PluginSourceEntry, 0, len(sources))
+	for _, address := range sources {
+		entries = append(entries, PluginSourceEntry{Address: address, Disabled: pluginSourceDisabled(address)})
+	}
+	return entries
 }
 
 func normalizePluginSourceAddress(address string) string {

@@ -27,7 +27,7 @@ export const appScriptLanguageLabels: Record<AppScriptLanguage, string> = {
   "adapter-go": "Adapter Go",
 };
 
-const appScriptLanguageOrder: AppScriptLanguage[] = [
+export const appScriptLanguageOrder: AppScriptLanguage[] = [
   "es5",
   "node",
   "python",
@@ -38,7 +38,7 @@ const appScriptLanguageOrder: AppScriptLanguage[] = [
   "adapter-go",
 ];
 
-const appScriptStarters: Record<AppScriptLanguage, string> = {
+export const appScriptStarters: Record<AppScriptLanguage, string> = {
   node: `// [title: 新式插件示例]
 // [name: newPlugin]
 // [desc: 新式插件说明]
@@ -251,6 +251,18 @@ export function useScriptsAdmin() {
     return groups;
   });
 
+  const scriptsSearchKeyword = computed(() => scripts.keyword.trim());
+  const hasScriptsKeyword = computed(() => !!scriptsSearchKeyword.value);
+  // 搜索时展示命中分类（自动展开有结果的分类，无结果时显示全部）。
+  const scriptSearchCategories = computed(() => {
+    const keyword = scriptsSearchKeyword.value.toLowerCase();
+    if (!keyword) return null;
+    const children = scriptCategoryChildren.value;
+    return scriptCategories.value.filter(
+      (category) => (children[category.key] || []).length > 0,
+    );
+  });
+
   function toggleScriptCategory(language: string) {
     // 点分类：切换展开/收起；首次点击即展开。
     scripts.expanded[language] = !scripts.expanded[language];
@@ -332,6 +344,7 @@ export function useScriptsAdmin() {
     executable: true,
     installed: false,
     content: "",
+    file: "",
     row: null as AppScriptInfo | null,
   });
   const scriptEditorHost = ref<HTMLElement | null>(null);
@@ -491,6 +504,7 @@ export function useScriptsAdmin() {
     scriptEditor.language = (row.language as AppScriptLanguage) || "node";
     scriptEditor.executable = row.executable !== false;
     scriptEditor.installed = row.installed !== false;
+    scriptEditor.file = row.file || "";
     scriptEditor.row = row;
     scriptEditor.content = "";
     scriptEditor.open = true;
@@ -510,6 +524,7 @@ export function useScriptsAdmin() {
       scriptEditor.language = (data.language as AppScriptLanguage) || scriptEditor.language;
       scriptEditor.executable = data.executable !== false;
       scriptEditor.installed = data.installed !== false;
+      scriptEditor.file = data.file || data.path || scriptEditor.file;
       scriptEditor.content = data.content || "";
       syncScriptEditorLanguage();
       syncScriptEditorContent(scriptEditor.content);
@@ -667,6 +682,9 @@ export function useScriptsAdmin() {
     scriptCategories,
     scriptCategoryCounts,
     scriptCategoryChildren,
+    scriptsSearchKeyword,
+    hasScriptsKeyword,
+    scriptSearchCategories,
     toggleScriptCategory,
     filteredScriptItems,
     scriptStatusToggling,

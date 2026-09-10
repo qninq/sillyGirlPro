@@ -1,19 +1,17 @@
 <script setup lang="ts">
 import Button from "ant-design-vue/es/button";
 import Dropdown from "ant-design-vue/es/dropdown";
-import Form from "ant-design-vue/es/form";
 import Input from "ant-design-vue/es/input";
 import Menu from "ant-design-vue/es/menu";
 import Modal from "ant-design-vue/es/modal";
-import Select from "ant-design-vue/es/select";
 import Spin from "ant-design-vue/es/spin";
 import Tag from "ant-design-vue/es/tag";
 import Tooltip from "ant-design-vue/es/tooltip";
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import {
   Bug,
   ChevronRight,
-  FileCode2,
+  FolderOpen,
   MoreHorizontal,
   Plus,
   Search,
@@ -29,46 +27,53 @@ import {
 } from "../../../composables/admin/useScriptsAdmin";
 import { useAdminViewContext } from "../adminViewContext";
 import PluginConfigModal from "../PluginConfigModal.vue";
+import PluginEditorModal from "../PluginEditorModal.vue";
 
 const {
   appScripts,
   appScriptsTotal,
   appScriptCategories,
   appScriptCategoryChildren,
-  toggleScriptCategory,
+  appScriptSearchCategories,
+  hasScriptsKeyword,
   appScriptStatusToggling: scriptStatusToggling,
   toggleAppScriptStatus,
+  toggleScriptCategory,
   enterScriptsPage,
   scriptEditor,
   scriptEditorHost,
   openScriptEditor,
-  createScript,
   saveScriptEditor,
   deleteScriptEditor,
   toggleScriptEditorTheme,
   initScriptEditor,
+  openNewScriptPluginEditor,
   openMarketPluginConfig,
   page,
 } = useAdminViewContext();
 
 const scripts = appScripts;
 const scriptsTotal = appScriptsTotal;
-const scriptCategories = appScriptCategories;
+const scriptCategories = computed(() =>
+  hasScriptsKeyword.value
+    ? appScriptSearchCategories.value || appScriptCategories.value
+    : appScriptCategories.value,
+);
 const scriptCategoryChildren = appScriptCategoryChildren;
 
-// 新建脚本弹窗状态。
-const createModal = ref(false);
-const createForm = ref<{ name: string; language: AppScriptLanguage }>({
-  name: "",
-  language: "node",
-});
-const createContent = ref("");
-const createSaving = ref(false);
+function selectCategory(language: string) {
+  if (hasScriptsKeyword.value) return; // 搜索时分类固定展开，不可折叠
+  toggleScriptCategory(language);
+}
 
 const editorLanguageLabel = computed(
   () =>
     appScriptLanguageLabels[scriptEditor.language as AppScriptLanguage] ||
     scriptEditor.language,
+);
+
+const editorLineCount = computed(
+  () => scriptEditor.content.split("\n").length,
 );
 
 const canConfigure = computed(
@@ -78,37 +83,6 @@ const canConfigure = computed(
     !scriptEditor.id.startsWith("file:") &&
     scriptEditor.row?.has_form === true,
 );
-
-function openCreateModal() {
-  createForm.value = { name: "", language: "node" };
-  createContent.value = "";
-  createModal.value = true;
-}
-
-function onCreateLanguageChange(language: AppScriptLanguage) {
-  createForm.value.language = language;
-}
-
-async function submitCreate() {
-  const name = createForm.value.name.trim();
-  if (!name) return;
-  if (!createContent.value.trim()) return;
-  createSaving.value = true;
-  try {
-    const created = await createScript({
-      name,
-      language: createForm.value.language,
-      content: createContent.value,
-    });
-    if (created) createModal.value = false;
-  } finally {
-    createSaving.value = false;
-  }
-}
-
-function selectCategory(language: string) {
-  toggleScriptCategory(language);
-}
 
 function onScriptClick(item: AppScriptInfo) {
   void openScriptEditor(item);
@@ -134,7 +108,8 @@ const moreMenu = computed(() => [
   },
 ]);
 
-function onMoreMenu({ key }: { key: string }) {
+function onMoreMenu(info: { key: string | number }) {
+  const key = String(info.key);
   if (key === "delete") {
     Modal.confirm({
       title: "确认删除该脚本文件？",
@@ -155,7 +130,10 @@ function onMoreMenu({ key }: { key: string }) {
       <aside class="scripts-sidebar">
         <div class="scripts-sidebar-header">
           <div class="scripts-total">
-            <span class="scripts-total-title">脚本目录</span>
+            <span class="scripts-total-title">
+              <FolderOpen :size="15" />
+              脚本目录
+            </span>
             <span class="scripts-total-badge">{{ scriptsTotal }}</span>
           </div>
           <Input
@@ -172,13 +150,15 @@ function onMoreMenu({ key }: { key: string }) {
             v-for="category in scriptCategories"
             :key="category.key"
             class="scripts-category"
-            :class="{ expanded: scripts.expanded[category.key] }"
+            :class="{
+              expanded: hasScriptsKeyword || scripts.expanded[category.key],
+            }"
           >
             <button
               class="scripts-category-item"
               :class="{ active: scripts.category === category.key }"
               type="button"
-              :aria-expanded="!!scripts.expanded[category.key]"
+              :aria-expanded="hasScriptsKeyword || !!scripts.expanded[category.key]"
               @click="selectCategory(category.key)"
             >
               <span class="scripts-category-label">
@@ -193,14 +173,22 @@ function onMoreMenu({ key }: { key: string }) {
                 <span
                   class="scripts-category-count"
                   :class="{ 'has-count': category.count > 0 }"
-                  >{{ category.count }}</span
+                  >{{
+                    hasScriptsKeyword
+                      ? (scriptCategoryChildren[category.key] || []).length
+                      : category.count
+                  }}</span
                 >
-                <ChevronRight :size="14" class="scripts-category-chevron" />
+                <ChevronRight
+                  v-if="!hasScriptsKeyword"
+                  :size="14"
+                  class="scripts-category-chevron"
+                />
               </span>
             </button>
             <!-- 分类下的脚本列表 -->
             <div
-              v-if="scripts.expanded[category.key]"
+              v-if="hasScriptsKeyword || scripts.expanded[category.key]"
               class="scripts-category-scripts"
             >
               <div
@@ -235,7 +223,7 @@ function onMoreMenu({ key }: { key: string }) {
                   :aria-label="`${item.title || item.name}启用状态切换`"
                   @click.stop="toggleAppScriptStatus(item)"
                 >
-                  {{ (item.status ?? true) ? "启用" : "停用" }}
+                  {{ (item.status ?? true) ? "启用" : "禁用" }}
                 </button>
                 <Tag
                   v-else-if="!item.executable"
@@ -273,7 +261,7 @@ function onMoreMenu({ key }: { key: string }) {
             </Button>
           </div>
           <div class="scripts-toolbar-actions">
-            <Button type="primary" @click="openCreateModal"
+            <Button type="primary" @click="openNewScriptPluginEditor('node')"
               ><template #icon><Plus :size="16" /></template>新建</Button
             >
             <Tooltip
@@ -324,6 +312,15 @@ function onMoreMenu({ key }: { key: string }) {
                   scriptEditor.theme === 'light',
               }"
             ></div>
+            <div class="scripts-editor-status">
+              <span>{{ editorLanguageLabel }}</span>
+              <span v-if="scriptEditor.installed">AutMan 插件</span>
+              <span v-else>本地文件</span>
+              <span v-if="scriptEditor.file" class="mono">{{ scriptEditor.file }}</span>
+              <span class="scripts-editor-stats"
+                >{{ editorLineCount }} 行 {{ scriptEditor.content.length }} 字符</span
+              >
+            </div>
           </div>
           <div v-else class="scripts-empty">
             <FileCode2 :size="40" />
@@ -334,45 +331,7 @@ function onMoreMenu({ key }: { key: string }) {
       </div>
     </div>
 
-    <!-- 新建脚本弹窗 -->
-    <Modal
-      v-model:open="createModal"
-      title="新建应用脚本"
-      width="560px"
-      :confirm-loading="createSaving"
-      ok-text="创建"
-      cancel-text="取消"
-      @ok="submitCreate"
-    >
-      <Form layout="vertical">
-        <Form.Item label="脚本名称" required>
-          <Input
-            v-model:value="createForm.name"
-            placeholder="例如 myWorker"
-          />
-        </Form.Item>
-        <Form.Item label="语言分类" required>
-          <Select
-            v-model:value="createForm.language"
-            :options="scriptCategories.map((c) => ({ label: c.label, value: c.key }))"
-            @change="onCreateLanguageChange"
-          />
-        </Form.Item>
-        <Form.Item
-          label="初始内容"
-          required
-          extra="JS/Python 系脚本需包含插件注释元数据（[title]/[name]/[desc]/[version] 及 [on_start]/[web]/[cron] 之一）"
-        >
-          <Input.TextArea
-            v-model:value="createContent"
-            :rows="12"
-            class="mono"
-            placeholder="粘贴或输入脚本初始源码"
-          />
-        </Form.Item>
-      </Form>
-    </Modal>
-
     <PluginConfigModal />
+    <PluginEditorModal />
   </section>
 </template>
