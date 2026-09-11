@@ -15,7 +15,8 @@ import Typography from 'ant-design-vue/es/typography';
 import message from 'ant-design-vue/es/message';
 import zhCN from 'ant-design-vue/es/locale/zh_CN';
 import AppBrand from './components/common/AppBrand.vue';
-import { Bell, MessageSquare, Plug, ShieldCheck, User } from 'lucide-vue-next';
+import { qqAvatarUrl } from './utils';
+import { Bell, Bot, Mail, Puzzle, User, UserRoundCheck } from 'lucide-vue-next';
 
 type ApiEnvelope<T> = {
   status: boolean;
@@ -45,14 +46,22 @@ const loginForm = reactive({
   password: '',
 });
 const registerForm = reactive({
-  username: '',
+  email: '',
   nickname: '',
   password: '',
+  confirm: '',
 });
+
+const qqEmailPattern = /^\d{5,12}@qq\.com$/;
 
 const userInitial = computed(() => {
   const name = currentUser.value?.nickname || currentUser.value?.username || 'U';
   return name.slice(0, 1).toUpperCase();
+});
+
+const userAvatar = computed(() => {
+  const username = currentUser.value?.username || '';
+  return qqAvatarUrl(/^\d{5,12}$/.test(username) ? username : '');
 });
 
 async function requestJSON<T>(url: string, options: RequestInit = {}): Promise<T> {
@@ -117,12 +126,25 @@ async function login() {
 }
 
 async function register() {
+  const email = registerForm.email.trim().toLowerCase();
+  if (!qqEmailPattern.test(email)) {
+    message.error('请输入正确的 QQ 邮箱（QQ号@qq.com）');
+    return;
+  }
+  if (registerForm.password.length < 6) {
+    message.error('密码至少 6 位');
+    return;
+  }
+  if (registerForm.password !== registerForm.confirm) {
+    message.error('两次输入的密码不一致');
+    return;
+  }
   loading.value = true;
   try {
     const data = await requestJSON<AuthPayload>('/api/user/accounts', {
       method: 'POST',
       body: JSON.stringify({
-        username: registerForm.username.trim(),
+        email,
         nickname: registerForm.nickname.trim(),
         password: registerForm.password,
       }),
@@ -182,11 +204,12 @@ onMounted(() => {
                 <Space wrap>
                   <Tag color="blue">用户服务入口</Tag>
                   <Tag color="green">服务运行中</Tag>
-                  <Tag>Vue 页面</Tag>
+                  <Tag>QQ 号即账号</Tag>
                 </Space>
-                <Typography.Title :level="1" class="home-title">SillyGirl 用户服务入口</Typography.Title>
+                <Typography.Title :level="1" class="home-title">一个机器人，多平台贴心服务</Typography.Title>
                 <Typography.Paragraph class="home-lead">
-                  面向普通用户的统一入口。这里用于账号注册、登录和查看服务能力，后续可扩展个人资料、授权状态、积分记录和消息通知。
+                  SillyGirl 是接入 QQ、QQ 官方机器人、Telegram、钉钉、微信和网页对话的多平台机器人。注册账号并绑定 QQ 后，
+                  私聊机器人即可使用插件功能，管理员回复与定时任务结果也会第一时间私聊推送给你。
                 </Typography.Paragraph>
                 <Space wrap>
                   <Button type="primary" href="#account">登录或注册</Button>
@@ -196,28 +219,34 @@ onMounted(() => {
               <Card class="home-panel" :bordered="false">
                 <div class="home-toolbar">
                   <Space size="small">
-                    <MessageSquare :size="16" />
-                    <Typography.Text strong>服务能力</Typography.Text>
-                    <Typography.Text class="muted">面向用户的功能入口</Typography.Text>
+                    <Bot :size="16" />
+                    <Typography.Text strong>机器人能力</Typography.Text>
+                    <Typography.Text class="muted">按插件持续扩展，注册后即可使用</Typography.Text>
                   </Space>
                 </div>
                 <Row :gutter="[12, 12]">
-                  <Col :xs="24" :md="8">
+                  <Col :xs="24" :md="12">
                     <Card size="small">
-                      <template #title><Space size="small"><Plug :size="16" />服务插件</Space></template>
-                      <Typography.Paragraph class="muted mb0">通过插件提供不同业务能力，用户登录后可接入更多个人服务。</Typography.Paragraph>
+                      <template #title><Space size="small"><Bot :size="16" />多平台接入</Space></template>
+                      <Typography.Paragraph class="muted mb0">QQ、QQ 官方机器人、Telegram、钉钉、微信、网页对话，一套账号全平台通用。</Typography.Paragraph>
                     </Card>
                   </Col>
-                  <Col :xs="24" :md="8">
+                  <Col :xs="24" :md="12">
                     <Card size="small">
-                      <template #title><Space size="small"><ShieldCheck :size="16" />账号体系</Space></template>
-                      <Typography.Paragraph class="muted mb0">普通用户使用独立登录态，保护账号访问和个人服务数据。</Typography.Paragraph>
+                      <template #title><Space size="small"><Puzzle :size="16" />插件功能</Space></template>
+                      <Typography.Paragraph class="muted mb0">人工客服留言、消息推送、群管理与入群服务、查询签到等能力，私聊机器人发指令即可使用。</Typography.Paragraph>
                     </Card>
                   </Col>
-                  <Col :xs="24" :md="8">
+                  <Col :xs="24" :md="12">
                     <Card size="small">
-                      <template #title><Space size="small"><Bell :size="16" />消息通知</Space></template>
-                      <Typography.Paragraph class="muted mb0">支持通过机器人触达用户，后续可扩展通知、签到和个人提醒。</Typography.Paragraph>
+                      <template #title><Space size="small"><Bell :size="16" />定时任务与推送</Space></template>
+                      <Typography.Paragraph class="muted mb0">定时任务结果与管理员回复私聊推送，重要消息不错过。</Typography.Paragraph>
+                    </Card>
+                  </Col>
+                  <Col :xs="24" :md="12">
+                    <Card size="small">
+                      <template #title><Space size="small"><UserRoundCheck :size="16" />QQ 号即账号</Space></template>
+                      <Typography.Paragraph class="muted mb0">QQ 邮箱一键注册，QQ 号就是账号并自动完成绑定，机器人凭绑定识别你的身份。</Typography.Paragraph>
                     </Card>
                   </Col>
                 </Row>
@@ -231,26 +260,26 @@ onMounted(() => {
                   <div class="home-link-row">
                     <span class="home-link-icon">1</span>
                     <span class="home-link-main">
-                      <Typography.Text strong>创建普通用户账号</Typography.Text>
-                      <Typography.Text class="muted">使用账号和密码注册，系统会自动保持登录状态。</Typography.Text>
+                      <Typography.Text strong>QQ 邮箱注册</Typography.Text>
+                      <Typography.Text class="muted">填写 QQ号@qq.com 与密码，QQ 号即账号并自动绑定，无需重复绑定。</Typography.Text>
                     </span>
                     <Tag>注册</Tag>
                   </div>
                   <div class="home-link-row">
                     <span class="home-link-icon">2</span>
                     <span class="home-link-main">
-                      <Typography.Text strong>登录用户中心</Typography.Text>
-                      <Typography.Text class="muted">登录后可查看个人账号信息和后续开放的用户功能。</Typography.Text>
+                      <Typography.Text strong>私聊机器人发指令</Typography.Text>
+                      <Typography.Text class="muted">给机器人发送插件指令即可使用功能，例如发送「人工」提交问题反馈。</Typography.Text>
                     </span>
-                    <Tag color="blue">登录</Tag>
+                    <Tag color="blue">指令</Tag>
                   </div>
                   <div class="home-link-row">
                     <span class="home-link-icon">3</span>
                     <span class="home-link-main">
-                      <Typography.Text strong>使用机器人服务</Typography.Text>
-                      <Typography.Text class="muted">通过已接入的机器人和插件能力完成签到、通知、授权等操作。</Typography.Text>
+                      <Typography.Text strong>接收回复与推送</Typography.Text>
+                      <Typography.Text class="muted">管理员回复、定时任务结果会私聊推送给你，用户中心可查看账号与绑定状态。</Typography.Text>
                     </span>
-                    <Tag color="green">服务</Tag>
+                    <Tag color="green">推送</Tag>
                   </div>
                 </div>
               </Card>
@@ -267,7 +296,7 @@ onMounted(() => {
 
                 <div v-if="currentUser" class="home-user-card">
                   <Space align="center">
-                    <Avatar :size="48" class="home-avatar">{{ userInitial }}</Avatar>
+                    <Avatar :size="48" class="home-avatar" :src="userAvatar || undefined">{{ userAvatar ? "" : userInitial }}</Avatar>
                     <span>
                       <Typography.Text strong>{{ currentUser.nickname || currentUser.username }}</Typography.Text>
                       <Typography.Text class="muted block">@{{ currentUser.username }}</Typography.Text>
@@ -284,8 +313,8 @@ onMounted(() => {
                   </div>
 
                   <Form v-if="authMode === 'login'" layout="vertical" @finish="login">
-                    <Form.Item label="账号" required>
-                      <Input id="home-login-username" v-model:value="loginForm.username" name="username" autocomplete="username" aria-label="登录账号" placeholder="请输入账号">
+                    <Form.Item label="账号（QQ 号）" required>
+                      <Input id="home-login-username" v-model:value="loginForm.username" name="username" autocomplete="username" aria-label="登录账号" placeholder="请输入 QQ 号">
                         <template #prefix><User :size="16" /></template>
                       </Input>
                     </Form.Item>
@@ -296,23 +325,34 @@ onMounted(() => {
                   </Form>
 
                   <Form v-else layout="vertical" @finish="register">
-                    <Form.Item label="账号" required>
-                      <Input id="home-register-username" v-model:value="registerForm.username" name="username" autocomplete="username" aria-label="注册账号" placeholder="3-32 位字母、数字、下划线">
-                        <template #prefix><User :size="16" /></template>
+                    <Form.Item label="QQ 邮箱" required>
+                      <Input id="home-register-email" v-model:value="registerForm.email" name="email" autocomplete="email" aria-label="注册邮箱" placeholder="QQ号@qq.com">
+                        <template #prefix><Mail :size="16" /></template>
                       </Input>
                     </Form.Item>
                     <Form.Item label="昵称">
-                      <Input id="home-register-nickname" v-model:value="registerForm.nickname" name="name" autocomplete="name" aria-label="注册昵称" placeholder="不填则使用账号" />
+                      <Input id="home-register-nickname" v-model:value="registerForm.nickname" name="name" autocomplete="name" aria-label="注册昵称" placeholder="不填则使用邮箱" />
                     </Form.Item>
                     <Form.Item label="密码" required>
                       <Input.Password id="home-register-password" v-model:value="registerForm.password" name="new-password" autocomplete="new-password" aria-label="注册密码" placeholder="至少 6 位" />
+                    </Form.Item>
+                    <Form.Item label="确认密码" required>
+                      <Input.Password
+                        id="home-register-confirm"
+                        v-model:value="registerForm.confirm"
+                        name="new-confirm-password"
+                        autocomplete="new-password"
+                        aria-label="确认密码"
+                        placeholder="再次输入密码"
+                        @press-enter="register"
+                      />
                     </Form.Item>
                     <Button type="primary" block :loading="loading" @click="register">创建账号</Button>
                   </Form>
                 </template>
 
                 <Typography.Paragraph class="home-auth-tip muted">
-                  账号仅用于普通用户服务入口，登录后会自动保持会话。
+                  使用 QQ 邮箱注册，QQ 号即账号并自动绑定；登录后机器人按绑定识别你的身份。
                 </Typography.Paragraph>
               </Card>
             </aside>

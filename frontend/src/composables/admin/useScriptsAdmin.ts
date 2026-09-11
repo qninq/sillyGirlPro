@@ -39,53 +39,137 @@ export const appScriptLanguageOrder: AppScriptLanguage[] = [
 ];
 
 export const appScriptStarters: Record<AppScriptLanguage, string> = {
-  node: `// [title: 新式插件示例]
-// [name: newPlugin]
-// [desc: 新式插件说明]
-// [rule: ^新式命令$]
-// [version: v1.0.0]
-// [author: admin]
-// [class: 工具]
-// [depe: ["axios"]]
-// [status: true]
+  node: `// =========================================================================
+// sillyGirl 插件元数据一览：按需保留/修改，不认识的字段会被自动忽略
+// 注释前缀：JS 用 //，Python 用 #；也兼容块注释 @key value 写法
+// =========================================================================
+// ── 基础信息 ──
+// [title: 示例插件]                     插件标题（必填）
+// [name: demoPlugin]                    插件标识（必填，建议与文件名一致）
+// [desc: 一句话介绍这个插件做什么]      描述，展示在插件市场（也兼容 [description: ...]）
+// [version: v1.0.0]                     版本号
+// [author: your-name]                   作者
+// [icon: https://example.com/icon.png]  图标地址，不填使用默认图标
+// [class: 工具]                         分类，可写多个（空格分隔）：工具/查询/娱乐/影音/生活/图片/游戏，也可自定义
+// [origin: 自定义]                      来源标识
+// ── 触发与执行 ──
+// [rule: ^菜单$]                        触发正则，可写多条 [rule: ...]
+// [rule: ^查询 (?<关键词>.+)$]          正则具名参数 (?<名称>...) 会自动提取消息参数
+// [admin: false]                        true = 仅管理员可触发
+// [priority: 0]                         优先级，数字越大越先执行
+// [cron: 0 9 * * *]                     定时执行（5 或 6 位 cron），可与 rule 共存
+// [on_start: false]                     true = sillyGirl 启动时执行，常驻任务从此开始
+// [web: false]                          true = 常驻后台服务（自动附带 on_start 效果）
+// [module: false]                       true = 模块插件：供其他插件 [depe] 引用，自身不响应消息
+// [carry: false]                        true = 作为消息搬运的处理脚本
+// ── 开关与市场 ──
+// [status: true]                        插件总开关，false = 停用（兼容 AutMan 的 [disable: false] 反向写法）
+// [public: false]                       是否公开到插件市场
+// [depe: ["axios"]]                     依赖声明：npm/pip 包名或 ./本地模块，可写多条 [depe: ...]
+// ── 配置表单 ──
+// 配置统一用 plugin.Form 代码注册（旧 [param: {...}] 头注已废弃）：
+// const form = new plugin.Form({
+//   apiKey: plugin.Form.string().title("接口密钥").description("在插件设置弹窗里填写"),
+// });
 
-const { sender: s } = require('sillygirl');
+const { sender: s, Bucket, plugin, utils } = require('sillygirl');
+
+// 常用 API 速查：
+//   s.reply(text)                              回复当前消息
+//   s.getMsg() / s.getMsgId()                  原始消息内容 / 消息 ID
+//   s.getUserId() / s.getUserName()            发送者 ID / 昵称
+//   s.getChatId() / s.getPlatform()            会话 ID / 当前平台
+//   s.getBotId() / s.isAdmin()                 机器人 ID / 是否管理员
+//   s.pushAdmin(text)                          给管理员推送消息
+//   s.listen({ rules, timeout, handle })       连续对话监听，handle 返回值会回复用户
+//   s.doAction({ action: "delete_msg", ... })  平台动作（撤回等）
+//   new Bucket("demo.data")                    键值存储：get/set/getAll/keys/delete/count
+//   utils.sleep(ms)                            异步等待
 
 async function main() {
-  s.reply('插件已就绪');
+  await s.reply('插件已就绪，发送「菜单」试试');
 }
 
 main().catch((error) => console.error(error));
 `,
-  python: `# [title: 新式Python插件示例]
-# [name: pythonDemo]
-# [desc: 新式Python插件说明]
-# [rule: ^新式命令$]
-# [version: v1.0.0]
-# [author: admin]
-# [class: 工具]
-# [depe: ["requests"]]
-# [status: true]
+  python: `# =========================================================================
+# sillyGirl 插件元数据一览：按需保留/修改，不认识的字段会被自动忽略
+# 注释前缀：Python 用 #；也兼容块注释 @key value 写法
+# =========================================================================
+# ── 基础信息 ──
+# [title: 示例插件]                     插件标题（必填）
+# [name: demoPlugin]                    插件标识（必填，建议与文件名一致）
+# [desc: 一句话介绍这个插件做什么]      描述，展示在插件市场（也兼容 [description: ...]）
+# [version: v1.0.0]                     版本号
+# [author: your-name]                   作者
+# [icon: https://example.com/icon.png]  图标地址，不填使用默认图标
+# [class: 工具]                         分类，可写多个（空格分隔）：工具/查询/娱乐/影音/生活/图片/游戏，也可自定义
+# [origin: 自定义]                      来源标识
+# ── 触发与执行 ──
+# [rule: ^菜单$]                        触发正则，可写多条 [rule: ...]
+# [rule: ^查询 (?<关键词>.+)$]          正则具名参数 (?<名称>...) 会自动提取消息参数
+# [admin: false]                        true = 仅管理员可触发
+# [priority: 0]                         优先级，数字越大越先执行
+# [cron: 0 9 * * *]                     定时执行（5 或 6 位 cron），可与 rule 共存
+# [on_start: false]                     true = sillyGirl 启动时执行，常驻任务从此开始
+# [web: false]                          true = 常驻后台服务（自动附带 on_start 效果）
+# [module: false]                       true = 模块插件：供其他插件 [depe] 引用，自身不响应消息
+# [carry: false]                        true = 作为消息搬运的处理脚本
+# ── 开关与市场 ──
+# [status: true]                        插件总开关，false = 停用（兼容 AutMan 的 [disable: false] 反向写法）
+# [public: false]                       是否公开到插件市场
+# [depe: ["requests"]]                  依赖声明：pip 包名或 ./本地模块，可写多条 [depe: ...]
+# ── 配置表单 ──
+# 配置统一用 plugin.Form 代码注册（旧 [param: {...}] 头注已废弃）：
+# form = plugin.Form({
+#     "apiKey": plugin.Form.string().title("接口密钥"),
+# })
 
 import asyncio
-from sillygirl import sender as s
 
+from sillygirl import Bucket, plugin, sender as s, utils
+
+# 常用 API 速查：
+#   await s.reply(text)                        回复当前消息
+#   await s.getMsg() / await s.getMsgId()      原始消息内容 / 消息 ID
+#   await s.getUserId() / await s.getUserName()  发送者 ID / 昵称
+#   await s.getChatId() / await s.getPlatform()  会话 ID / 当前平台
+#   await s.getBotId() / await s.isAdmin()     机器人 ID / 是否管理员
+#   await s.pushAdmin(text)                    给管理员推送消息
+#   await s.listen({ ... })                    连续对话监听
+#   bucket = Bucket("demo.data")               键值存储：await get/set/getAll/keys/delete/count
+#   await utils.sleep(ms)                      异步等待
 
 async def main():
-    await s.reply("插件已就绪")
+    await s.reply("插件已就绪，发送「菜单」试试")
 
 
 asyncio.run(main())
 `,
-  es5: `// [title: ES5 插件示例]
-// [name: es5Demo]
-// [desc: ES5 插件说明]
-// [rule: ^es5命令$]
-// [version: v1.0.0]
-// [author: admin]
-// [class: 工具]
-// [status: true]
+  es5: `// =========================================================================
+// sillyGirl 插件元数据一览（ES5）：按需保留/修改，不认识的字段会被自动忽略
+// =========================================================================
+// ── 基础信息 ──
+// [title: ES5 示例插件]                 插件标题（必填）
+// [name: es5Demo]                       插件标识（必填）
+// [desc: 一句话介绍这个插件做什么]      描述，展示在插件市场
+// [version: v1.0.0]                     版本号
+// [author: your-name]                   作者
+// [icon: https://example.com/icon.png]  图标地址
+// [class: 工具]                         分类，可写多个（空格分隔）
+// ── 触发与执行 ──
+// [rule: ^es5命令$]                     触发正则，可写多条 [rule: ...]
+// [admin: false]                        true = 仅管理员可触发
+// [priority: 0]                         优先级，数字越大越先执行
+// [cron: 0 9 * * *]                     定时执行（5 或 6 位 cron）
+// [on_start: false]                     true = sillyGirl 启动时执行
+// [module: false]                       true = 模块插件，供其他插件 [depe] 引用
+// ── 开关与市场 ──
+// [status: true]                        插件总开关，false = 停用
+// [public: false]                       是否公开到插件市场
+// [depe: []]                            依赖声明：npm 包名或 ./本地模块
 
+// ES5 环境无 require；如运行环境注入了 sender 全局，可直接 sender.reply(...)
 var name = "sillyGirl";
 
 function greet(who) {
@@ -94,46 +178,83 @@ function greet(who) {
 
 greet(name);
 `,
-  "adapter-js": `// [title: Adapter 插件示例]
-// [name: adapterDemo]
-// [desc: 平台适配器插件说明]
-// [version: v1.0.0]
-// [author: admin]
-// [class: 适配器]
-// [status: true]
+  "adapter-js": `// =========================================================================
+// sillyGirl 适配器插件元数据（JS）：适配器用于接入外部平台消息，
+// 不使用 rule/cron/on_start 等消息触发字段
+// =========================================================================
+// [title: 适配器示例]                   适配器标题
+// [name: adapterDemo]                   适配器标识
+// [desc: 接入自定义平台的消息适配器]    描述
+// [version: v1.0.0]                     版本号
+// [author: your-name]                   作者
+// [class: 适配器]                       分类
+// [status: true]                        总开关，false = 停用
 
 const { Adapter } = require('sillygirl');
 
-// 适配器脚本通过 new Adapter({ platform, botId }) 接入平台消息。
-console.log('adapter script bootstrap');
+// Adapter 用法速查：
+//   platform / bot_id              平台与机器人标识，核心按它路由消息
+//   replyHandler / actionHandler   核心下发回复 / 动作时触发，返回字符串作为处理结果
+//   adapter.receive(msg)           收到平台消息后投递给核心
+//   adapter.push(msg)              主动推送，返回平台消息 ID
+//   adapter.destroy()              注销（未传 replyHandler 时为安全空操作）
+const adapter = new Adapter({
+  platform: 'demo',
+  bot_id: 'demo-bot',
+  replyHandler: async (message) => {
+    // 在这里把核心回复转换成平台消息发送出去
+    return '';
+  },
+});
+
+console.log('adapter bootstrap');
 `,
-  "adapter-python": `# [title: Python Adapter 插件示例]
-# [name: pyAdapterDemo]
-# [desc: Python 平台适配器插件说明]
-# [version: v1.0.0]
-# [author: admin]
-# [class: 适配器]
-# [status: true]
+  "adapter-python": `# =========================================================================
+# sillyGirl 适配器插件元数据（Python）：适配器用于接入外部平台消息，
+# 不使用 rule/cron/on_start 等消息触发字段
+# =========================================================================
+# [title: Python 适配器示例]            适配器标题
+# [name: pyAdapterDemo]                 适配器标识
+# [desc: 接入自定义平台的消息适配器]    描述
+# [version: v1.0.0]                     版本号
+# [author: your-name]                   作者
+# [class: 适配器]                       分类
+# [status: true]                        总开关，false = 停用
 
 import asyncio
-from sillygirl import sender as s
+
+from sillygirl import Adapter
 
 
 async def main():
-    adapter = await s.getAdapter()
-    print("python adapter ready:", adapter)
+    def reply_handler(message):
+        # 在这里把核心回复转换成平台消息发送出去
+        return ""
+
+    adapter = Adapter(platform="demo", bot_id="demo-bot", replyHandler=reply_handler)
+    # adapter.receive(msg) 投递消息给核心；adapter.push(msg) 主动推送；await adapter.destroy() 注销
+    print("python adapter ready")
 
 
 asyncio.run(main())
 `,
-  typescript: `// [title: TypeScript 插件示例]
+  typescript: `// =========================================================================
+// sillyGirl 插件元数据一览（TypeScript 占位脚本，暂不支持在线调试）
+// 元数据字段与 Node.js 插件完全一致，保存后仅落盘不加载
+// =========================================================================
+// [title: TypeScript 示例]
 // [name: typescriptDemo]
-// [desc: TypeScript 插件说明]
-// [rule: ^ts命令$]
+// [desc: TypeScript 应用脚本说明]
 // [version: v1.0.0]
-// [author: admin]
+// [author: your-name]
 // [class: 工具]
+// [rule: ^ts命令$]
+// [admin: false]
+// [priority: 0]
+// [cron: 0 9 * * *]
+// [on_start: false]
 // [status: true]
+// [public: false]
 
 // TypeScript 应用脚本（暂不支持在线调试）
 const name: string = "sillyGirl";
@@ -144,14 +265,19 @@ function greet(who: string): string {
 
 console.log(greet(name));
 `,
-  golang: `// [title: Golang 插件示例]
+  golang: `// =========================================================================
+// sillyGirl 插件元数据一览（Golang 占位脚本，暂不支持在线调试）
+// 元数据字段与 Node.js 插件一致，保存后仅落盘不编译
+// =========================================================================
+// [title: Golang 示例]
 // [name: golangDemo]
-// [desc: Golang 插件说明]
-// [rule: ^go命令$]
+// [desc: Golang 应用脚本说明]
 // [version: v1.0.0]
-// [author: admin]
+// [author: your-name]
 // [class: 工具]
+// [rule: ^go命令$]
 // [status: true]
+// [public: false]
 
 // Golang 应用脚本（暂不支持在线调试）
 package main
@@ -162,11 +288,15 @@ func main() {
   fmt.Println("golang app script")
 }
 `,
-  "adapter-go": `// [title: Golang Adapter 插件示例]
+  "adapter-go": `// =========================================================================
+// sillyGirl 适配器插件元数据（Golang 占位脚本，暂不支持在线调试）
+// 适配器不使用 rule/cron/on_start 等消息触发字段；保存后仅落盘不编译
+// =========================================================================
+// [title: Golang 适配器示例]
 // [name: adapterGoDemo]
-// [desc: Golang 平台适配器插件说明]
+// [desc: Golang 平台适配器说明]
 // [version: v1.0.0]
-// [author: admin]
+// [author: your-name]
 // [class: 适配器]
 // [status: true]
 

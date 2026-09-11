@@ -1,0 +1,1 @@
+function e(e){return e?new Date(e*1e3).toLocaleString():`-`}function t(e){let t=(e||``).trim();return/^\d{5,12}$/.test(t)?`https://q2.qlogo.cn/headimg_dl?dst_uin=${t}&spec=100`:``}export{e as n,t};

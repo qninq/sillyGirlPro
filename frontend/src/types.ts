@@ -49,6 +49,7 @@ export type AdminUserRow = {
   id: string;
   username: string;
   nickname: string;
+  email?: string;
   created_at?: number;
   updated_at?: number;
   disabled?: boolean;

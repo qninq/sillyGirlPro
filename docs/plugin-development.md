@@ -168,7 +168,7 @@ keys = await db.keys()
 await db.delete("count")
 ```
 
-不同插件建议使用不同 Bucket 名称，避免覆盖其他插件的数据。
+不同插件建议使用不同 Bucket 名称，避免覆盖其他插件的数据。Bucket 名称支持点号分层（如 `im.wc`、`im.qb`），管理后台「存储桶」页会按首段分组展示成可折叠卡片，建议按 `插件名.数据类别` 命名，便于在同一目录里归类管理。
 
 ### 配置表单
 
@@ -360,7 +360,32 @@ Python 新式写法：
 # [depe: ["requests"]]
 ```
 
-兼容字段包括：`title`、`name`、`desc`、`status`、`rule`、`cron`、`admin`、`priority`、`version`、`author`、`class`、`public`、`icon`、`module`、`carry`、`on_start`、`web`、`depe` 等。新插件建议使用 `[title: ...]` / `[rule: ...]` / `[depe: ...]` 形式。
+全部支持的字段与说明（新插件建议使用 `[title: ...]` / `[rule: ...]` / `[depe: ...]` 形式）：
+
+| 字段 | 说明 |
+|---|---|
+| `title` | 插件标题（必填） |
+| `name` | 插件标识（必填，建议与文件名一致） |
+| `desc` / `description` | 插件描述，展示在插件市场；`description` 作为 `desc` 的兜底 |
+| `version` | 版本号，默认 `v1.0.0` |
+| `author` | 作者 |
+| `icon` | 图标地址，不填使用默认图标 |
+| `class` | 分类，可写多个（空格分隔），也可自定义 |
+| `origin` | 来源标识，默认 `自定义` |
+| `rule` | 触发正则，可写多条；支持 `(?<名称>...)` 具名参数与 `[参数?]` 可选语法 |
+| `admin` | `true` = 仅管理员可触发 |
+| `priority` | 优先级，数字越大越先执行 |
+| `cron` | 定时执行，5 或 6 位 cron 表达式，可与 `rule` 共存 |
+| `on_start` | `true` = sillyGirl 启动时执行 |
+| `web` | `true` = 常驻后台服务（自动附带 `on_start` 效果） |
+| `module` | `true` = 模块插件，供其他插件 `[depe]` 引用，自身不响应消息 |
+| `carry` | 作为消息搬运的处理脚本 |
+| `status` | 插件总开关，默认 `true` |
+| `disable` | AutMan 兼容字段，等价反向 `status`（显式 `status` 优先） |
+| `public` | 是否公开到插件市场 |
+| `depe` | 依赖声明：npm/pip 包名或 `./本地模块`，可写多条 |
+
+不认识的字段会被自动忽略；旧式 `[param: {...}]` 配置头注已废弃，配置统一用 `plugin.Form` 代码注册。
 
 ### 旧式 `@` 注释兼容
 
@@ -565,7 +590,7 @@ bucket.empty();      // 清空 bucket
 bucket.count();        // 获取键数量（number）
 ```
 
-**作用域说明**：每个 Bucket 是独立的命名空间，不同插件建议使用不同的 Bucket 名称，避免键冲突。
+**作用域说明**：每个 Bucket 是独立的命名空间，不同插件建议使用不同的 Bucket 名称，避免键冲突。Bucket 名称支持点号分层（如 `myapp.config`、`myapp.users`），管理后台「存储桶」页按首段分组展示成可折叠卡片，建议按 `插件名.数据类别` 命名。
 
 ### plugin.Form 插件配置表单
 

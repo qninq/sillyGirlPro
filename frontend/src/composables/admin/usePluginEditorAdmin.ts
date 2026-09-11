@@ -119,25 +119,7 @@ export function usePluginEditorAdmin(deps: UsePluginEditorAdminDeps) {
     return pluginEditorRuntime;
   }
 
-  const pluginEditorStarter = `// [title: 本地插件]
-  // [name: localPlugin]
-  // [desc: 本地手动新增插件]
-  // [author: admin]
-  // [version: v1.0.0]
-  // [status: true]
-  // [rule: ^测试插件$]
-  // [public: false]
-  // [class: 工具]
-  // [depe: []]
-
-  const { sender: s } = require('sillygirl');
-
-  async function main() {
-    await s.reply('pong');
-  }
-
-  main().catch((error) => s.reply(error.message || String(error)));
-  `;
+  const pluginEditorStarter = appScriptStarters.node;
 
   function pluginEditorLanguageExtension(): Extension {
     if (!pluginEditorRuntime) return [];

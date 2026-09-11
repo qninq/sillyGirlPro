@@ -1,4 +1,4 @@
-import { reactive } from "vue";
+import { reactive, watch } from "vue";
 import message from "ant-design-vue/es/message";
 import { get, post } from "../../api";
 import type { AdminUserRow } from "../../types";
@@ -9,6 +9,7 @@ export function useNormalUsersAdmin() {
     username: string;
     password: string;
     nickname: string;
+    email: string;
     qq: string;
     telegram: string;
     disabled: boolean;
@@ -18,6 +19,7 @@ export function useNormalUsersAdmin() {
     username: "",
     password: "",
     nickname: "",
+    email: "",
     qq: "",
     telegram: "",
     disabled: false,
@@ -26,6 +28,7 @@ export function useNormalUsersAdmin() {
   const normalUsers = reactive({
     rows: [] as AdminUserRow[],
     total: 0,
+    search: "",
     loading: false,
     modalOpen: false,
     editing: null as AdminUserRow | null,
@@ -33,6 +36,33 @@ export function useNormalUsersAdmin() {
     deleting: {} as Record<string, boolean>,
     form: emptyNormalUserForm(),
   });
+
+  let allNormalUsers: AdminUserRow[] = [];
+
+  function matchNormalUser(row: AdminUserRow, query: string) {
+    return [
+      row.username,
+      row.nickname,
+      row.email,
+      row.bindings?.qq,
+      row.bindings?.telegram,
+    ].some((field) => String(field || "").toLowerCase().includes(query));
+  }
+
+  function applyNormalUserFilter() {
+    const query = normalUsers.search.trim().toLowerCase();
+    if (!query) {
+      normalUsers.rows = allNormalUsers;
+      normalUsers.total = allNormalUsers.length;
+      return;
+    }
+    normalUsers.rows = allNormalUsers.filter((row) =>
+      matchNormalUser(row, query),
+    );
+    normalUsers.total = normalUsers.rows.length;
+  }
+
+  watch(() => normalUsers.search, applyNormalUserFilter);
 
   async function loadNormalUsers() {
     normalUsers.loading = true;
@@ -42,8 +72,8 @@ export function useNormalUsersAdmin() {
           "/api/admin/users",
         );
       const data = apiData(res);
-      normalUsers.rows = data?.list || [];
-      normalUsers.total = data?.total || normalUsers.rows.length;
+      allNormalUsers = data?.list || [];
+      applyNormalUserFilter();
     } finally {
       normalUsers.loading = false;
     }
@@ -55,6 +85,7 @@ export function useNormalUsersAdmin() {
           username: row.username,
           password: "",
           nickname: row.nickname || "",
+          email: row.email || "",
           qq: row.bindings?.qq || "",
           telegram: row.bindings?.telegram || "",
           disabled: !!row.disabled,
@@ -69,6 +100,11 @@ export function useNormalUsersAdmin() {
       message.warning("请输入账号");
       return;
     }
+    const email = form.email.trim();
+    if (email && !/^\d{5,12}@qq\.com$/.test(email)) {
+      message.warning("邮箱仅支持 QQ 邮箱（QQ号@qq.com）");
+      return;
+    }
     if (!normalUsers.editing && form.password.length < 6) {
       message.warning("密码至少 6 位");
       return;
@@ -79,6 +115,7 @@ export function useNormalUsersAdmin() {
         username,
         password: form.password,
         nickname: form.nickname.trim(),
+        email,
         qq: form.qq.trim(),
         telegram: form.telegram.trim(),
         disabled: !!form.disabled,

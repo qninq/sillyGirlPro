@@ -26,6 +26,16 @@ type storageBucketRequest struct {
 	Bucket string `json:"bucket"`
 }
 
+type storageEntryRequest struct {
+	Bucket string `json:"bucket"`
+	Key    string `json:"key"`
+	Value  string `json:"value"`
+}
+
+type storageBucketRenameRequest struct {
+	Name string `json:"name"`
+}
+
 func normalizeStorageBucketName(name string) (string, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
@@ -34,8 +44,8 @@ func normalizeStorageBucketName(name string) (string, error) {
 	if len(name) > 128 {
 		return "", errors.New("存储桶名称不能超过128个字符")
 	}
-	if strings.ContainsAny(name, ".,\r\n\t ") {
-		return "", errors.New("存储桶名称不能包含点号、逗号或空白字符")
+	if strings.ContainsAny(name, ",/\r\n\t ") {
+		return "", errors.New("存储桶名称不能包含逗号、斜杠或空白字符")
 	}
 	return name, nil
 }
@@ -374,5 +384,129 @@ func init() {
 			return
 		}
 		ApiOK(ctx, nil)
+	})
+	GinApi(GET, "/api/admin/storage/bucket-entries", RequireAuth, func(ctx *gin.Context) {
+		bucket, err := normalizeStorageBucketName(ctx.Query("bucket"))
+		if err != nil {
+			ApiUnprocessable(ctx, err.Error())
+			return
+		}
+		page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
+		perPage, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "20"))
+		search := ctx.Query("search")
+		data := []map[string]string{}
+		MakeBucket(bucket).Foreach(func(b1, b2 []byte) error {
+			if shouldHideStorageKey(bucket, string(b1)) {
+				return nil
+			}
+			if !storageEntryMatchesSearch(string(b1), string(b2), search) {
+				return nil
+			}
+			data = append(data, map[string]string{
+				"bucket": bucket,
+				"key":    string(b1),
+				"value":  string(b2),
+			})
+			return nil
+		})
+		sort.Slice(data, func(i, j int) bool {
+			return data[i]["key"] < data[j]["key"]
+		})
+		page, perPage, start, end := paginationBounds(page, perPage, len(data))
+		res := data[start:end]
+		index := start + 1
+		for i := range res {
+			res[i]["index"] = fmt.Sprint(index)
+			index++
+		}
+		ApiList(ctx, res, len(data), map[string]interface{}{
+			"page":      page,
+			"page_size": perPage,
+			"bucket":    bucket,
+		})
+	})
+	GinApi(POST, "/api/admin/storage/bucket-entries", RequireAuth, func(ctx *gin.Context) {
+		req := storageEntryRequest{}
+		if err := ctx.ShouldBindJSON(&req); err != nil {
+			ApiFail(ctx, err.Error())
+			return
+		}
+		bucket, err := normalizeStorageBucketName(req.Bucket)
+		if err != nil {
+			ApiUnprocessable(ctx, err.Error())
+			return
+		}
+		key := strings.TrimSpace(req.Key)
+		if key == "" {
+			ApiUnprocessable(ctx, "Key 不能为空")
+			return
+		}
+		if isBackendVersionStorageKey(bucket, key) {
+			ApiUnprocessable(ctx, "版本信息由后端维护，不允许在存储中修改")
+			return
+		}
+		message, _, err := SetBucketKeyValue(MakeBucket(bucket), key, req.Value)
+		if err != nil {
+			ApiInternalError(ctx, err.Error())
+			return
+		}
+		ApiOK(ctx, gin.H{"bucket": bucket, "key": key, "message": message})
+	})
+	GinApi(POST, "/api/admin/storage/buckets/:bucket/renames", RequireAuth, func(ctx *gin.Context) {
+		from, err := normalizeStorageBucketName(ctx.Param("bucket"))
+		if err != nil {
+			ApiUnprocessable(ctx, err.Error())
+			return
+		}
+		req := storageBucketRenameRequest{}
+		if err := ctx.ShouldBindJSON(&req); err != nil {
+			ApiFail(ctx, err.Error())
+			return
+		}
+		to, err := normalizeStorageBucketName(req.Name)
+		if err != nil {
+			ApiUnprocessable(ctx, err.Error())
+			return
+		}
+		if message, ok := protectedStorageBuckets[from]; ok {
+			ApiForbidden(ctx, message)
+			return
+		}
+		if message, ok := protectedStorageBuckets[to]; ok {
+			ApiForbidden(ctx, message)
+			return
+		}
+		if from == to {
+			ApiOK(ctx, gin.H{"bucket": to})
+			return
+		}
+		found := false
+		for _, bucket := range sillyGirl.Buckets() {
+			if bucket == from {
+				found = true
+			}
+			if bucket == to {
+				ApiConflict(ctx, "存储桶已存在")
+				return
+			}
+		}
+		if !found {
+			ApiNotFound(ctx, "存储桶不存在")
+			return
+		}
+		target := MakeBucket(to)
+		MakeBucket(from).Foreach(func(b1, b2 []byte) error {
+			_, _, _ = target.Set(string(b1), string(b2))
+			return nil
+		})
+		if _, _, err := target.Set2(storageBucketMarkerKey, "1"); err != nil {
+			ApiInternalError(ctx, err.Error())
+			return
+		}
+		if err := MakeBucket(from).Delete(); err != nil {
+			ApiInternalError(ctx, err.Error())
+			return
+		}
+		ApiOK(ctx, gin.H{"bucket": to})
 	})
 }

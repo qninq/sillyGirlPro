@@ -27,12 +27,23 @@ var (
 	userNamePattern      = regexp.MustCompile(`^[A-Za-z0-9_\-.]{3,32}$`)
 	userQQBindingPattern = regexp.MustCompile(`^\d{5,12}$`)
 	userTGBindingPattern = regexp.MustCompile(`^-?\d{5,20}$`)
+	userQQEmailPattern   = regexp.MustCompile(`^(\d{5,12})@qq\.com$`)
 )
+
+// normalUserQQFromEmail 校验注册邮箱必须是 QQ 数字邮箱，并返回其中的 QQ 号。
+func normalUserQQFromEmail(email string) (string, error) {
+	m := userQQEmailPattern.FindStringSubmatch(strings.ToLower(strings.TrimSpace(email)))
+	if m == nil {
+		return "", errors.New("仅支持 QQ 邮箱注册，格式：QQ号@qq.com")
+	}
+	return m[1], nil
+}
 
 type normalUser struct {
 	ID           string `json:"id"`
 	Username     string `json:"username"`
 	Nickname     string `json:"nickname"`
+	Email        string `json:"email"`
 	PasswordHash string `json:"password_hash"`
 	CreatedAt    int64  `json:"created_at"`
 	UpdatedAt    int64  `json:"updated_at"`
@@ -43,6 +54,7 @@ type publicNormalUser struct {
 	ID        string `json:"id"`
 	Username  string `json:"username"`
 	Nickname  string `json:"nickname"`
+	Email     string `json:"email"`
 	CreatedAt int64  `json:"created_at"`
 }
 
@@ -64,6 +76,7 @@ type adminNormalUserPayload struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 	Nickname string `json:"nickname"`
+	Email    string `json:"email"`
 	Disabled *bool  `json:"disabled"`
 	QQ       string `json:"qq"`
 	Telegram string `json:"telegram"`
@@ -95,7 +108,7 @@ func init() {
 			ApiFail(ctx, "请求体不是有效 JSON")
 			return
 		}
-		user, err := createNormalUser(payload.Username, payload.Password, payload.Nickname)
+		user, err := createNormalUser(payload.Username, payload.Password, payload.Nickname, payload.Email)
 		if err != nil {
 			if strings.Contains(err.Error(), "已存在") {
 				ApiConflict(ctx, err.Error())
@@ -156,6 +169,7 @@ func init() {
 
 	GinApi(POST, "/api/user/accounts", func(ctx *gin.Context) {
 		payload := struct {
+			Email    string `json:"email"`
 			Username string `json:"username"`
 			Password string `json:"password"`
 			Nickname string `json:"nickname"`
@@ -164,13 +178,32 @@ func init() {
 			ApiFail(ctx, "请求体不是有效 JSON")
 			return
 		}
-		user, err := createNormalUser(payload.Username, payload.Password, payload.Nickname)
+		email := strings.ToLower(strings.TrimSpace(payload.Email))
+		if email == "" {
+			ApiUnprocessable(ctx, "请使用 QQ 邮箱注册（QQ号@qq.com）")
+			return
+		}
+		qq, err := normalUserQQFromEmail(email)
+		if err != nil {
+			ApiUnprocessable(ctx, err.Error())
+			return
+		}
+		nickname := strings.TrimSpace(payload.Nickname)
+		if nickname == "" {
+			nickname = email
+		}
+		user, err := createNormalUser(qq, payload.Password, nickname, email)
 		if err != nil {
 			if strings.Contains(err.Error(), "已存在") {
-				ApiConflict(ctx, err.Error())
+				ApiConflict(ctx, "该 QQ 号已注册，请直接登录")
 			} else {
 				ApiUnprocessable(ctx, err.Error())
 			}
+			return
+		}
+		if _, err := replaceNormalUserBindings(user.Username, qq, ""); err != nil {
+			_ = deleteNormalUser(user.Username)
+			ApiUnprocessable(ctx, err.Error())
 			return
 		}
 		token, err := createUserJWT(user)
@@ -288,14 +321,20 @@ func init() {
 	})
 }
 
-func createNormalUser(username string, password string, nickname string) (*normalUser, error) {
+func createNormalUser(username string, password string, nickname string, email string) (*normalUser, error) {
 	username = normalizeNormalUsername(username)
 	nickname = strings.TrimSpace(nickname)
+	email = strings.ToLower(strings.TrimSpace(email))
 	if err := validateNormalUsername(username); err != nil {
 		return nil, err
 	}
 	if err := validateNormalPassword(password); err != nil {
 		return nil, err
+	}
+	if email != "" {
+		if _, err := normalUserQQFromEmail(email); err != nil {
+			return nil, err
+		}
 	}
 	if existing, _ := loadNormalUser(username); existing != nil {
 		return nil, errors.New("账号已存在")
@@ -312,6 +351,7 @@ func createNormalUser(username string, password string, nickname string) (*norma
 		ID:           utils.GenUUID(),
 		Username:     username,
 		Nickname:     nickname,
+		Email:        email,
 		PasswordHash: string(hash),
 		CreatedAt:    now,
 		UpdatedAt:    now,
@@ -341,6 +381,12 @@ func updateNormalUserByAdmin(payload adminNormalUserPayload) (*normalUser, norma
 	}
 	if len([]rune(nickname)) > 64 {
 		return nil, normalUserBindings{}, errors.New("昵称不能超过 64 位")
+	}
+	if email := strings.TrimSpace(payload.Email); email != "" {
+		if _, err := normalUserQQFromEmail(email); err != nil {
+			return nil, normalUserBindings{}, err
+		}
+		user.Email = strings.ToLower(email)
 	}
 	passwordHash := user.PasswordHash
 	if payload.Password != "" {
@@ -701,6 +747,7 @@ func toPublicNormalUser(user *normalUser) publicNormalUser {
 		ID:        user.ID,
 		Username:  user.Username,
 		Nickname:  user.Nickname,
+		Email:     user.Email,
 		CreatedAt: user.CreatedAt,
 	}
 }

@@ -1,3 +1,32 @@
+## v1.2.7 - 2026-09-10
+
+### 插件运行时修复
+
+- **修复 Node 插件 `Adapter.destroy()` 崩溃导致插件进程退出**：仅用于主动推送、未传入 `replyHandler` 的 Adapter（如「消息与群管理」插件的回复/推送命令）在调用 `destroy()` 时执行 `this.call.cancel()`，因未建立注册流 `this.call` 为 `undefined` 而抛 `TypeError`，作为未捕获的 Promise rejection 使插件进程以 `exit status 1` 退出（日志表现为 `index.js:1177` + `插件进程执行失败：exit status 1`）。`destroy()` 现改为对未建立注册流的 Adapter 安全跳过（`this.call?.cancel()`），与 Python 运行时空操作语义一致，内置运行时 `proto3/sillygirl.js` 同步更新。
+
+### 存储管理
+
+- **存储页改为「数据桶目录 + 键值表格」**：左侧数据桶目录完全对齐「插件开发」页脚本目录的视觉——「数据桶 + 总数徽章」表头（蓝色文件夹图标）、筛选搜索框、卡片式折叠分组（桶名按点号首段分组，如 `im` 卡片下挂 `wc`/`qb`，展开时蓝色描边、数量徽章高亮、旋转箭头、卡片内分隔线），无点号的单桶为可直接点选的叶子卡片；选中桶后可改名/删桶。右侧展示所选桶的键值表格（序号 / Bucket / KEY / VALUE / 操作），支持按 KEY / VALUE 搜索、分页与删除键。数据桶名称放开了点号限制（仍禁止逗号、斜杠与空白字符），并新增按精确桶名读写的 `GET/POST /api/admin/storage/bucket-entries`、桶改名 `POST /api/admin/storage/buckets/:bucket/renames` 接口；原有 `storage/entries`、`storage/values` 接口保持不变以兼容其他功能。
+- **VALUE 编辑器升级为代码编辑器**：新增/编辑数据弹窗的 VALUE 支持文本/JSON 双模式切换（编辑时自动识别内容类型），JSON 模式下使用 CodeMirror 提供语法高亮与行号；提供「格式化 JSON」按钮与 Shift+Alt+F 快捷键，JSON 模式保存前校验格式，非法 JSON 阻止提交。编辑 JSON 数据时自动展开为带缩进的排版便于查看与修改，保存时统一压缩回单行，存储始终保持紧凑（展示格式化、存储紧凑）。
+- **docs/api-storage.md 新增「内置数据桶」总表**：梳理系统自身数据的主要内置 Bucket（`sillyGirl`、`users`、`tasks`、`plugins`、`reply`、`CarryGroups` 等）及键结构；明确用户数据全部收在 `users` 桶内——`user:<账号>` 存账号记录（含邮箱与 bcrypt 密码哈希）、`bindings:<账号>` 存 QQ/TG 绑定，删除用户会同时移除两个键。
+
+### 用户体系
+
+- **QQ 头像接入**：新增共享头像助手 `qqAvatarUrl`（`https://q2.qlogo.cn/headimg_dl?dst_uin={QQ号}&spec=100`），用户服务首页登录卡、用户中心（顶栏与资料卡）优先按 QQ 绑定号（自助注册账号即 QQ 号）拉取 QQ 头像，无 QQ 号时回退首字母头像；修复用户中心页漏引 `qqAvatarUrl` 导致头像计算属性运行时报错、始终回退首字母头像的问题。
+- **后台用户管理视图更新**：用户列表「账号」列改为「头像 + 昵称 + 账号」布局，头像按该用户 QQ 绑定（或纯数字账号）实时拉取 QQ 头像；列表新增「邮箱」列、移除「绑定更新时间」列，顶部新增搜索框支持按账号 / 昵称 / 邮箱 / QQ / TGID 实时过滤（前端过滤）；新增账号弹窗的账号说明补充「用户端注册的账号为其 QQ 号」。
+- **注册改为 QQ 邮箱注册，QQ 号即账号**：用户服务入口的注册表单改为「QQ 邮箱 + 昵称（选填，不填使用邮箱）+ 密码 + 确认密码」，仅接受 `QQ号@qq.com` 数字邮箱，邮箱前缀 QQ 号即登录账号（5-12 位数字），注册成功自动写入 QQ 绑定——机器人凭绑定直接识别用户身份，无需再手动绑定；已注册 QQ 号提示直接登录。登录页账号占位同步改为「QQ 号」。后端 `POST /api/user/accounts` 收 `email` 字段（旧 `username` 字段不再接受），管理员后台创建用户不受影响；QQ 邮箱解析规则 `^(\d{5,12})@qq\.com$`，确认密码一致性由前端校验。
+- **用户服务首页按机器人真实能力重构**：删除已下线功能（用户插件表单、SmallCat 面板等）相关的旧介绍，重写主视觉与文案——「一个机器人，多平台贴心服务」，能力卡片改为多平台接入（QQ/QQ 官方/Telegram/钉钉/微信/网页对话）、插件功能（人工客服、消息推送、群管理等）、定时任务与私聊推送、QQ 号即账号；使用流程更新为「QQ 邮箱注册 → 私聊机器人发指令 → 接收回复与推送」三步。
+- **管理员可维护用户邮箱**：新增/编辑账号弹窗新增「邮箱」输入框（仅接受 `QQ号@qq.com`），表单 `email` 字段随 payload 提交、后端创建用户不再固定写空串；编辑弹窗同步补充「用户端注册的账号即邮箱前缀 QQ 号」说明。
+- **用户中心展示邮箱**：`/user` 页面资料卡在账号名下展示注册邮箱（有邮箱时显示）。
+
+### 插件开发体验
+
+- **新建脚本模板补全全部元数据注释**：插件开发页「新建」与插件市场「新增插件」的默认模板从 9 行简版升级为分组注释版——基础信息（title/name/desc/version/author/icon/class/origin）、触发与执行（rule 具名参数/admin/priority/cron/on_start/web/module/carry）、开关与市场（status 兼容 disable/public/depe）、配置表单（plugin.Form 写法说明，标注旧 `[param]` 头注废弃）四大区块，每个字段附中文说明；并附常用 API 速查（reply/getMsg/listen/pushAdmin/Bucket/utils.sleep 等）。Python/ES5/TypeScript/Golang 与 Adapter JS/Python/Go 各语言模板同步补全（Adapter 模板附 Adapter 用法速查，占位语言标注不可调试）；修复市场「新增插件」模板元数据行错误缩进，两处模板统一共用同一份定义。
+
+### 已知限制说明
+
+- **`s.getEvent()` 事件机制当前不可用**：适配器只推送 `post_type == "message"` 的消息（如 QQ 适配器直接丢弃 OneBot 的 `notice.group_increase` 等通知事件），核心也没有任何写入 `event` 变量的链路，且插件仅在 `[rule]` 匹配到消息内容时才会被拉起——因此依赖 `getEvent()` 判断入群/退群等通知事件的插件逻辑（如「消息与群管理」插件的入群验证 `verifyJoin`）永远不会被触发，属迁移自 AutMan 事件机制的历史遗留死代码，该插件的其余消息指令（人工/回复/推送/手机号撤回）不受影响。后续如需入群验证等事件能力，需适配器推送事件 + 核心新增事件分发与 `[event]` 元数据支持。
+
 ## v1.2.6 - 2026-09-10
 
 ### 插件市场

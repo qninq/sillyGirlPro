@@ -15,6 +15,7 @@ import Typography from "ant-design-vue/es/typography";
 import message from "ant-design-vue/es/message";
 import zhCN from "ant-design-vue/es/locale/zh_CN";
 import AppBrand from "./components/common/AppBrand.vue";
+import { qqAvatarUrl } from "./utils";
 import { Link, LogOut } from "lucide-vue-next";
 
 type ApiEnvelope<T> = {
@@ -35,6 +36,7 @@ type PublicUser = {
   id: string;
   username: string;
   nickname: string;
+  email?: string;
   created_at: number;
 };
 
@@ -72,6 +74,13 @@ const bindForm = reactive({
 const userInitial = computed(() => {
   const name = user.value?.nickname || user.value?.username || "U";
   return name.slice(0, 1).toUpperCase();
+});
+
+// 头像优先用 QQ 绑定号拉取 QQ 头像；无绑定但账号本身是 QQ 号（自助注册）同样可用。
+const userAvatar = computed(() => {
+  const username = user.value?.username || "";
+  const qq = bindings.qq || (/^\d{5,12}$/.test(username) ? username : "");
+  return qqAvatarUrl(qq);
 });
 
 const announcementVisible = computed(
@@ -350,7 +359,7 @@ onMounted(() => {
         <header class="user-topbar">
           <AppBrand class="user-brand" href="/" />
           <Space v-if="user" align="center">
-            <Avatar :size="34" class="user-avatar">{{ userInitial }}</Avatar>
+            <Avatar :size="34" class="user-avatar" :src="userAvatar || undefined">{{ userAvatar ? "" : userInitial }}</Avatar>
             <span class="user-name">{{ user.nickname || user.username }}</span>
             <Button @click="logout"
               ><template #icon><LogOut :size="16" /></template>退出</Button
@@ -387,8 +396,8 @@ onMounted(() => {
             <section class="user-summary">
               <Card :bordered="false">
                 <Space align="center">
-                  <Avatar :size="56" class="user-avatar">{{
-                    userInitial
+                  <Avatar :size="56" class="user-avatar" :src="userAvatar || undefined">{{
+                    userAvatar ? "" : userInitial
                   }}</Avatar>
                   <span>
                     <Typography.Title :level="3" class="user-title">{{
@@ -396,6 +405,11 @@ onMounted(() => {
                     }}</Typography.Title>
                     <Typography.Text class="muted"
                       >@{{ user.username }}</Typography.Text
+                    >
+                    <Typography.Text
+                      v-if="user.email"
+                      class="muted user-email"
+                      >{{ user.email }}</Typography.Text
                     >
                   </span>
                 </Space>
@@ -606,6 +620,13 @@ onMounted(() => {
 
 .muted {
   color: #6b7280;
+}
+
+.user-email {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  word-break: break-all;
 }
 
 .mono {

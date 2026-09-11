@@ -30,7 +30,7 @@
 
 ![SillyGirl 存储管理](images/storage-management.png)
 
-存储页按 Bucket 浏览键值，支持查询、新建、修改和删除。截图使用 `demo` Bucket，不含生产配置。
+存储页左侧为数据桶目录（桶名按点号分层折叠分组），右侧展示所选桶的键值表格，支持按 KEY / VALUE 搜索、新建、修改和删除。VALUE 编辑器对 JSON 数据提供语法高亮、自动展开排版与「格式化 JSON」按钮，保存时压缩回单行保持存储紧凑。截图使用 `demo` Bucket，不含生产配置。
 
 ## 适配器管理
 

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Avatar from "ant-design-vue/es/avatar";
 import Button from "ant-design-vue/es/button";
 import { Edit3, Plus, RefreshCw, Trash2 } from "lucide-vue-next";
 import Form from "ant-design-vue/es/form";
@@ -10,7 +11,7 @@ import Switch from "ant-design-vue/es/switch";
 import Table from "ant-design-vue/es/table";
 import Tag from "ant-design-vue/es/tag";
 import Typography from "ant-design-vue/es/typography";
-import { timestamp } from "../../../utils";
+import { qqAvatarUrl, timestamp } from "../../../utils";
 import { useAdminViewContext } from "../adminViewContext";
 
 const {
@@ -22,6 +23,17 @@ const {
   saveNormalUser,
   user,
 } = useAdminViewContext();
+
+function rowAvatar(record: any) {
+  const qq =
+    record.bindings?.qq ||
+    (/^\d{5,12}$/.test(record.username || "") ? record.username : "");
+  return qqAvatarUrl(qq);
+}
+
+function rowInitial(record: any) {
+  return (record.nickname || record.username || "U").slice(0, 1).toUpperCase();
+}
 </script>
 
 <template>
@@ -30,6 +42,12 @@ const {
       <div class="toolbar-left">
         <Typography.Text strong>普通用户</Typography.Text>
         <Tag>{{ normalUsers.total }}</Tag>
+        <Input
+          v-model:value="normalUsers.search"
+          class="user-search"
+          placeholder="搜索账号 / 邮箱 / QQ / TGID"
+          allow-clear
+        />
       </div>
       <Space>
         <Button type="primary" @click="openNormalUser()"
@@ -49,17 +67,34 @@ const {
       <Table.Column title="#" :width="72">
         <template #default="{ index }">{{ index + 1 }}</template>
       </Table.Column>
-      <Table.Column title="账号" data-index="username" :width="180">
+      <Table.Column title="账号" data-index="username" :width="220">
         <template #default="{ record }">
-          <Space direction="vertical" size="small">
-            <Typography.Text strong>{{ record.username }}</Typography.Text>
-            <Typography.Text class="muted">{{
-              record.nickname || "-"
-            }}</Typography.Text>
+          <Space size="middle" align="center">
+            <Avatar
+              :size="40"
+              class="user-row-avatar"
+              :src="rowAvatar(record) || undefined"
+              >{{ rowAvatar(record) ? "" : rowInitial(record) }}</Avatar
+            >
+            <Space direction="vertical" size="small">
+              <Typography.Text strong>{{
+                record.nickname || record.username
+              }}</Typography.Text>
+              <Typography.Text class="muted">{{
+                record.username
+              }}</Typography.Text>
+            </Space>
           </Space>
         </template>
       </Table.Column>
-      <Table.Column title="QQ" :width="150">
+      <Table.Column title="邮箱" data-index="email" :width="200">
+        <template #default="{ record }">
+          <Typography.Text class="mono">{{
+            record.email || "-"
+          }}</Typography.Text>
+        </template>
+      </Table.Column>
+      <Table.Column title="QQ" :width="130">
         <template #default="{ record }">
           <Typography.Text class="mono">{{
             record.bindings?.qq || "-"
@@ -72,11 +107,6 @@ const {
             record.bindings?.telegram || "-"
           }}</Typography.Text>
         </template>
-      </Table.Column>
-      <Table.Column title="绑定更新时间" :width="180">
-        <template #default="{ record }">{{
-          timestamp(record.bindings?.updated_at)
-        }}</template>
       </Table.Column>
       <Table.Column title="注册时间" data-index="created_at" :width="180">
         <template #default="{ text }">{{ timestamp(text) }}</template>
@@ -174,6 +204,18 @@ const {
           placeholder="留空则使用账号名"
         />
       </Form.Item>
+      <Form.Item
+        label="邮箱"
+        html-for="normal-user-email"
+        extra="仅支持 QQ 邮箱（QQ号@qq.com）；用户端注册的账号即邮箱前缀 QQ 号。"
+      >
+        <Input
+          id="normal-user-email"
+          v-model:value="normalUsers.form.email"
+          name="normal-user-email"
+          placeholder="例如：123456@qq.com"
+        />
+      </Form.Item>
       <Form.Item label="绑定 QQ" html-for="normal-user-qq">
         <Input
           id="normal-user-qq"
@@ -200,3 +242,17 @@ const {
     </Form>
   </Modal>
 </template>
+
+<style scoped>
+.user-search {
+  width: 240px;
+  margin-left: 12px;
+}
+
+.user-row-avatar {
+  flex: 0 0 auto;
+  color: #ffffff;
+  background: #111827;
+  font-weight: 700;
+}
+</style>

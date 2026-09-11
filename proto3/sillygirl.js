@@ -1174,7 +1174,7 @@ class Adapter {
         });
     }
     async destroy() {
-        this.call.cancel();
+        this.call?.cancel();
     }
     async sender(options) {
         return new Promise((resolve, reject) => {

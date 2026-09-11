@@ -126,8 +126,10 @@ Base URL: `http://host:port/api`
 | `POST` | `/api/admin/plugin-market/github-proxy-option-deletions/*proxy` |
 | `GET`, `POST` | `/api/admin/storage/values` |
 | `GET` | `/api/admin/storage/entries` |
+| `GET`, `POST` | `/api/admin/storage/bucket-entries` |
 | `GET`, `POST` | `/api/admin/storage/buckets` |
 | `POST` | `/api/admin/storage/buckets/:bucket/deletions` |
+| `POST` | `/api/admin/storage/buckets/:bucket/renames` |
 | `GET` | `/api/admin/message-rules/:kind` |
 | `POST` | `/api/admin/message-rules/:kind/:key` |
 | `POST` | `/api/admin/message-rules/:kind/:key/deletions` |
@@ -137,6 +139,22 @@ Base URL: `http://host:port/api`
 | `POST` | `/api/admin/qqguild-onboard-tasks` |
 | `POST` | `/api/admin/qqguild-onboard-tasks/:task_id/polls` |
 | `GET` | `/api/admin/logs/stream`（SSE，鉴权支持 `token` 查询参数） |
+
+`GET /api/admin/logs/stream` 为 SSE 实时日志流，鉴权支持 `token` 查询参数回退。
+
+普通用户账号接口（Admin 用户管理）：
+
+- `GET /api/admin/users` 返回全部普通用户行（含 `email`、`bindings`、`disabled`、`storage_key`），后台页面在此基础上做账号 / 昵称 / 邮箱 / QQ / TGID 的前端过滤搜索。
+- `POST /api/admin/users` 创建用户，请求体 `{ "username": "...", "password": "...", "nickname": "...", "email": "...", "qq": "...", "telegram": "...", "disabled": false }`；`email` 非空时仅接受 QQ 邮箱（`QQ号@qq.com`），`qq`/`telegram` 非空时写入对应绑定。
+- `POST /api/admin/users/:username` 更新用户，`password` 留空保留原密码，`email` 留空不修改；`qq`/`telegram` 为替换语义（留空解除绑定）。
+- `POST /api/admin/users/:username/deletions` 删除用户，同时移除 `users` 桶内 `user:` 与 `bindings:` 两个键。
+
+用户服务（User 资源）说明：
+
+- `POST /api/user/accounts` 为自助注册入口，请求体 `{ "email": "...", "password": "...", "nickname": "..." }`。仅接受 QQ 数字邮箱（规则 `^(\d{5,12})@qq\.com$`），邮箱前缀 QQ 号即登录账号（5-12 位数字），昵称选填（默认使用邮箱）；注册成功自动写入 QQ 绑定，返回 JWT 与用户信息。
+- `POST /api/user/sessions` 使用账号（自助注册用户即 QQ 号）与密码登录，连续失败有频率限制。
+- `GET /api/user/profile` 返回当前用户（`user.email` 含注册邮箱）、绑定与用户公告。
+- `POST /api/user/bindings/:platform` 与对应 deletions 仅支持 `qq`、`telegram` 两个平台。
 
 `POST /api/admin/qqguild-onboard-tasks` 创建 QQ 官方扫码绑定任务（q.qq.com bind 服务），返回 `task_id` 和 `qr_code_url`；`POST /api/admin/qqguild-onboard-tasks/:task_id/polls` 内部轮询绑定结果（最长 50 秒），确认成功后服务端解密凭据并自动保存 `qqguild.app_id`/`qqguild.app_secret` 且启用适配器，返回 `confirmed` 与凭据。
 
@@ -250,25 +268,54 @@ Bucket 对外返回原始类型，底层字符串使用前缀保存类型：
 
 应用层应通过 Bucket API 写值，不要直接拼接这些前缀。
 
+### 内置数据桶
+
+系统自身数据与插件数据共用同一存储引擎，主要内置 Bucket 如下：
+
+| Bucket | 键 | 值 | 用途 |
+|---|---|---|---|
+| `sillyGirl` | 设置名 | 标量 / JSON | 系统设置（存储后端、公告、管理员账号等） |
+| `users` | `user:<账号>` | JSON | 普通用户账号：`id`、`username`、`nickname`、`email`、`password_hash`（bcrypt）、`created_at`、`updated_at`、`disabled` |
+| `users` | `bindings:<账号>` | JSON | 用户绑定：`qq`、`telegram`、`updated_at`；自助注册用户注册时自动写入 `qq` |
+| `tasks` | 任务 ID | JSON | 定时任务 |
+| `plugins` | 插件 ID | JSON | 已安装插件 |
+| `plugin_config_schemas` | 插件 UUID | JSON | 插件配置表单定义 |
+| `plugin_config_values` | 插件 UUID | JSON | 插件配置值 |
+| `plugin_messages` | 消息 ID | JSON | 插件消息记录 |
+| `reply` | 规则 ID | JSON | 回复规则 |
+| `CarryGroups` | 分组 ID | JSON | 转发 / 监听分组 |
+| `noListenUsers`、`listenOnGroups`、`noReplyGroups` | 平台相关 ID | 标量 | 监听与回复开关 |
+| `nickname` | 自动生成 | JSON | 用户昵称 |
+| `proxies` | 代理 ID | JSON | 代理配置 |
+| `auths` | 授权键 | 标量 | OpenAPI 授权 |
+| 平台名（`qq`、`telegram` 等） | `masters` 等 | 标量 | 各平台管理员与适配器配置 |
+
+用户账号数据全部收在 `users` 一个桶内，用 `user:` 与 `bindings:` 前缀区分账号与绑定两类键，删除用户会同时移除这两个键（写空值即删除）。自助注册（QQ 邮箱）用户的账号即邮箱前缀 QQ 号，`user:` 记录的 `email` 保存完整 QQ 邮箱，`bindings.qq` 自动写入同一 QQ 号。
+
 ### 管理 REST API
+
+Bucket 名称可包含点号以表达层级（如 `im.wc`，管理页按点号分层显示成树），但不能包含逗号、斜杠或空白字符。
 
 | Method | Resource | 说明 |
 |---|---|---|
 | `GET` | `/api/admin/storage/buckets` | 列出 Bucket |
 | `POST` | `/api/admin/storage/buckets` | 创建 Bucket |
 | `POST` | `/api/admin/storage/buckets/:bucket/deletions` | 删除 Bucket |
-| `GET` | `/api/admin/storage/entries?bucket=NAME&page=1&page_size=20` | 分页读取键值 |
-| `GET` | `/api/admin/storage/values?bucket=NAME&key=KEY` | 读取值 |
-| `POST` | `/api/admin/storage/values` | 创建、更新或删除值 |
+| `POST` | `/api/admin/storage/buckets/:bucket/renames` | Bucket 改名（请求体 `{"name":"新名称"}`，复制键值后删除旧 Bucket） |
+| `GET` | `/api/admin/storage/bucket-entries?bucket=NAME&page=1&page_size=20&search=` | 按精确 Bucket 名分页读取键值（`search` 按 KEY/VALUE 子串过滤） |
+| `POST` | `/api/admin/storage/bucket-entries` | 按精确 Bucket 名创建、更新或删除值（请求体 `{"bucket":"...","key":"...","value":"..."}`，`value` 为空字符串时删除该键，Bucket 不存在时自动创建） |
+| `GET` | `/api/admin/storage/entries?bucket=NAME&page=1&page_size=20` | 分页读取键值（`bucket` 支持逗号分隔多个，`NAME.KEY` 形式读取单键） |
+| `GET` | `/api/admin/storage/values?bucket=NAME&key=KEY` | 读取值（`keys=NAME.KEY` 逗号分隔批量，键值寻址用 `.` 分隔，不适用于含点号 Bucket 名） |
+| `POST` | `/api/admin/storage/values` | 创建、更新或删除值（键写为 `bucket.key`，含点号 Bucket 名请改用 `bucket-entries`） |
 
 ```bash
-curl 'http://HOST:8080/api/admin/storage/entries?bucket=demo&page=1&page_size=20' \
+curl 'http://HOST:8080/api/admin/storage/bucket-entries?bucket=im.wc&page=1&page_size=20' \
   -H 'token: JWT_TOKEN'
 
-curl -X POST 'http://HOST:8080/api/admin/storage/values' \
+curl -X POST 'http://HOST:8080/api/admin/storage/bucket-entries' \
   -H 'token: JWT_TOKEN' \
   -H 'Content-Type: application/json' \
-  -d '{"bucket":"demo","key":"version","value":"1.0.8"}'
+  -d '{"bucket":"im.wc","key":"disable_group","value":"false"}'
 ```
 
 ### 切换、迁移与备份
