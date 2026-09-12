@@ -114,6 +114,9 @@ https://HOST/qqguild/webhook
 | `qqguild` | `at` | 群聊回复自动 @ 发送者，仅在 `markdown` 开启时生效（默认开启） |
 | `qqguild` | `enable` | 可选开关 |
 | `qqguild` | `debug` | 调试日志 |
+| `qqguild` | `group_join_auto_approve` | 入群申请审核模式：`off`（默认，申请发到群里由管理员回复 `1` 通过 / `0` 拒绝）/ `approve`（自动通过）/ `decline`（自动拒绝） |
+| `qqguild` | `join_strategy_groups` | 可选：逗号分隔群 openid，配置后自动同步为 QQ 官方托管的入群自动审批策略（机器人离线也生效） |
+| `qqguild` | `join_strategy_whitelist` | 可选：逗号分隔 QQ 号白名单，仅白名单内 QQ 自动通过；留空不限制 |
 
 Webhook 模式要求可访问的 HTTPS 地址；WebSocket 模式由 SillyGirl 主动连接 Gateway，断线重连采用指数退避（2s 起步、30s 封顶，连接成功后重置）。
 
@@ -121,12 +124,14 @@ Webhook 模式要求可访问的 HTTPS 地址；WebSocket 模式由 SillyGirl �
 
 消息能力：
 
-- **接收**：支持频道 @ 消息（`AT_MESSAGE_CREATE`）、频道全量消息（公域开关开启后）、群聊全量消息（`GROUP_MESSAGE_CREATE`）、群 @ 消息、C2C 私聊和频道私信；按消息 ID 做入站去重（10 秒窗口），网关重连重推不会导致重复回复。
+- **接收**：支持频道 @ 消息（`AT_MESSAGE_CREATE`）、频道全量消息（公域开关开启后）、群聊全量消息（`GROUP_MESSAGE_CREATE`）、群 @ 消息、C2C 私聊和频道私信；按消息 ID 做入站去重（10 秒窗口），网关重连重推不会导致重复回复。群聊和 C2C 的图片/视频/语音附件会自动转成 `[CQ:image/video/record,url=...]` CQ 码并入消息内容（官方返回的媒体 URL 已去除反引号包裹），纯媒体消息 content 不再为空，可正常触发插件。
 - **发送**：默认纯文本。回复内容中的 `[CQ:image,url=...]`、`[CQ:video,url=...]`、`[CQ:record,url=...]`、`[CQ:file,url=...]` 会被解析，群聊和 C2C 通过 QQ v2 富媒体接口上传后以 `msg_type=7` 发送，文字随首条媒体一起发送；频道场景支持单张图片 URL 直发。本地路径的媒体链接无法上传，会被忽略并记录日志。
 - **Markdown**：开启 `markdown` 开关后，群聊和 C2C 的纯文本回复改用 `msg_type=2` Markdown 发送；机器人无 Markdown 权限时自动回退纯文本。频道消息的 `content` 本身支持 Markdown，无需开关。
 - **回复自动@**：开启 `at` 开关后（默认开），群聊 Markdown 回复会自动在正文前插入 `<qqbot-at-user>` 标签 @ 发送者；仅在 `markdown` 开启时生效。
 - **主动推送**：只带 ID 的主动推送（转发、`pushAdmin` 等）按以下顺序路由：核心显式携带的 `chat_type`（群聊→群接口 `/v2/groups/{id}/messages`，私聊→C2C 接口）→ 从收到的群聊/C2C 消息学习的「openid → 场景」映射 → 未知目标按频道接口处理。群主动消息受平台月度配额限制；C2C 主动推送需要对方先私聊过机器人。
 - **撤回**：接收过的消息支持通过核心 Action（`type: delete_message`）按场景调用对应撤回接口，30 分钟内的消息有效。
+- **群管理事件**：WebSocket 模式订阅 `GROUP_MEMBER`（1<<24）intent，成员进群/退群（`GROUP_MEMBER_ADD`/`GROUP_MEMBER_REMOVE`）、机器人被拉入/移出群、入群申请（`GROUP_JOIN_REQUEST`）等事件经统一处理记录日志。入群申请按 `group_join_auto_approve` 处理：默认（off）自动在群里提示「收到「昵称」的入群申请，回复 1 通过 / 0 拒绝」，管理员回复 `1`/`0` 即完成审批（多条申请 FIFO 排队、每群最多 10 条、2 小时有效；结果以被动回复发送，不占主动消息额度）；approve/decline 模式直接自动审批。
+- **群管理 Action**：插件经 `s.doAction({ type: "动作名", ... })` 调用（适配器侧由构造参数 `actionHandler` 接收），返回 JSON（`{ok, data?, error?}`）。支持：`group_info`、`group_bot_state`、`group_member_list`（cursor 分页）、`group_member_info`、`group_member_remove`（≤20 人，可 `add_to_blacklist`）、`group_blacklist` / `group_blacklist_update`（op: add/remove）、`group_join_requests`（拉取申请列表）、`group_join_approve`（op: approve/decline，可带 `reject_reason`）、`group_mute`（members ≤10，`{op: add|update|del, member_openid, mute_expire_at}`，仅普通成员）、`group_mute_setting`、入群自动审批策略 `join_strategy_list/create/update/delete/execute/whitelist`。其中成员列表、成员信息、批量移除、黑名单接口处于官方**内邀阶段**，未开通的机器人返回错误码 11253。
 
 ## Web Bot
 

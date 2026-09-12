@@ -168,7 +168,7 @@ func TestAdminJWTTokenHeaderInterfaceFlow(t *testing.T) {
 
 func TestUserJWTTokenHeaderInterfaceFlow(t *testing.T) {
 	username := "header_user_" + strings.ReplaceAll(utils.GenUUID(), "-", "")[:12]
-	user, err := createNormalUser(username, "header-password", "请求头测试用户")
+	user, err := createNormalUser(username, "header-password", "请求头测试用户", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -246,7 +246,7 @@ func TestLoginInterfacesReturnJWTWithoutCookies(t *testing.T) {
 
 	username := "login_user_" + strings.ReplaceAll(utils.GenUUID(), "-", "")[:10]
 	userPassword := "header-login-password"
-	if _, err := createNormalUser(username, userPassword, "JWT 登录测试"); err != nil {
+	if _, err := createNormalUser(username, userPassword, "JWT 登录测试", ""); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = deleteNormalUser(username) })

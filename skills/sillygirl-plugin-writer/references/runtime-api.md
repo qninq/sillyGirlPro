@@ -52,13 +52,13 @@ await s.getMsgId();
 await s.getUserId();
 await s.getChatId();
 await s.getPlatform();
-await s.getUsername();
+await s.getUserName();
 await s.param("name");
 await s.isAdmin();
 await s.reply("text");
 await s.reply({ type: "image", url: "https://HOST/image.png" });
 await s.listen({ timeout: 30000 });
-await s.recallMessage(messageId);
+await s.doAction({ type: "delete_message", message_id: messageId }); // 仅部分平台支持（当前为 QQ 官方机器人，30 分钟内消息）
 await s.resume();
 ```
 

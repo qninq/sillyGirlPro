@@ -10,7 +10,7 @@ Copy the nearest recipe, replace its metadata and business logic, then run the b
 // [desc: Echo a captured value]
 // [author: AI]
 // [version: v1.0.0]
-// [rule: raw ^echo [内容]$]
+// [rule: ^echo [内容]$]
 
 const { sender: s } = require("sillygirl");
 
@@ -92,7 +92,7 @@ main().catch((error) => {
 // [desc: Process carry content]
 // [author: AI]
 // [version: v1.0.0]
-// [rule: raw ^处理 [内容]$]
+// [rule: ^处理 [内容]$]
 // [carry: true]
 
 const { sender: s } = require("sillygirl");
@@ -137,7 +137,7 @@ http.createServer((request, response) => {
 # [desc: Echo a captured value]
 # [author: AI]
 # [version: v1.0.0]
-# [rule: raw ^py [内容]$]
+# [rule: ^py [内容]$]
 
 import asyncio
 from sillygirl import sender as s

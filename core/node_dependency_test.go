@@ -336,14 +336,20 @@ plugin.Form({
 		t.Fatal(err)
 	}
 
+	// 首次安装前依赖缺失，收集预加载会把缺失导入解析为惰性占位对象，
+	// 因此顶层表单仍能导出 schema（占位值来自空字符串，不含依赖提供的真实文案）。
 	registrationErr := registerPythonPluginConfigSchema(pluginPath, uuid)
-	if registrationErr == nil {
-		t.Fatal("config registration should fail before the Python dependency is installed")
+	if registrationErr != nil {
+		t.Fatalf("config registration should succeed before the Python dependency is installed: %v", registrationErr)
 	}
-	t.Logf("baseline without Python dependency: %v", registrationErr)
-	if got := pluginConfigSchemas.GetString(uuid); got != "" {
-		t.Fatalf("schema should still be empty before Python dependency install: %s", got)
+	baseline := pluginConfigSchemas.GetString(uuid)
+	if !strings.Contains(baseline, `"token"`) {
+		t.Fatalf("schema should expose the form field before Python dependency install: %s", baseline)
 	}
+	if strings.Contains(baseline, "Dependency Token") {
+		t.Fatalf("missing Python dependency should resolve to an inert placeholder: %s", baseline)
+	}
+	t.Logf("baseline without Python dependency: %s", baseline)
 
 	moduleDir := pythonPackagesDir()
 	if err := os.MkdirAll(moduleDir, 0755); err != nil {

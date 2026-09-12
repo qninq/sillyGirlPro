@@ -260,6 +260,9 @@ class Sender {
             const call = client.SenderListen(metadata);
             call.on("data", (response) => {
                 if (response.echo == "END") {
+                    // 监听超时：先 resolve 结束 promise，再取消流，
+                    // 避免 cancel 触发 error 事件产生未捕获的 rejection 导致进程退出。
+                    resolve(null);
                     call.cancel();
                     return;
                 }
@@ -548,7 +551,11 @@ class Bucket {
         return this.name;
     }
 }
-exports.Bucket = Bucket;
+// Bucket 以工厂函数导出：兼容文档中 `Bucket("name")` 无 new 的写法，
+// 以普通函数返回实例，`new Bucket("name")` 的旧写法同样可用（函数作为构造器时返回实例）。
+exports.Bucket = function (name) {
+    return new Bucket(name);
+};
 function isSchemaNode(value) {
     return !!(value && value.__schemaNode && value.schema);
 }

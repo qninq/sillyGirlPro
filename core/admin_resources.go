@@ -30,7 +30,7 @@ var adminBotSettingsKeys = []string{
 	"qq.enable", "qq.token", "qq.debug",
 	"telegram.token", "telegram.enable", "telegram.api_base", "telegram.debug",
 	"dingtalk.enable", "dingtalk.client_id", "dingtalk.client_secret", "dingtalk.debug",
-	"qqguild.enable", "qqguild.mode", "qqguild.app_id", "qqguild.app_secret", "qqguild.sandbox", "qqguild.public_bot", "qqguild.markdown", "qqguild.at", "qqguild.debug",
+	"qqguild.enable", "qqguild.mode", "qqguild.app_id", "qqguild.app_secret", "qqguild.sandbox", "qqguild.public_bot", "qqguild.markdown", "qqguild.at", "qqguild.debug", "qqguild.group_join_auto_approve", "qqguild.join_strategy_groups", "qqguild.join_strategy_whitelist",
 	"pagermaid.enable", "pagermaid.token", "pagermaid.debug",
 	"sillyGirl.web_chat_public",
 }

@@ -20,6 +20,7 @@ import (
 	"github.com/qninq/sillyGirlPro/core/storage"
 	"github.com/qninq/sillyGirlPro/utils"
 	"github.com/tencent-connect/botgo"
+	botgoConstant "github.com/tencent-connect/botgo/constant"
 	"github.com/tencent-connect/botgo/dto"
 	qqmessage "github.com/tencent-connect/botgo/dto/message"
 	"github.com/tencent-connect/botgo/event"
@@ -48,8 +49,8 @@ const (
 	msgContextTTL     = 30 * time.Minute
 	seenMessageTTL    = 10 * time.Second
 	chatSceneLimit    = 2048
-	qqAPIHostDefault  = "https://api.sgroup.qq.com"
-	qqSandboxAPIHost  = "https://sandbox.api.sgroup.qq.com"
+	qqAPIHostDefault  = "https://api.bot.qq.com"
+	qqSandboxAPIHost  = "https://sandbox.api.bot.qq.com"
 	sceneChannel      = "channel"
 	sceneDirect       = "direct"
 	sceneGroup        = "group"
@@ -206,6 +207,11 @@ var runtime = struct {
 }{}
 
 func init() {
+	// 官方 2026-08-10 起所有接口域名统一为 api.bot.qq.com（含 access_token 获取），
+	// botgo v0.2.1 内置的 api.sgroup.qq.com / bots.qq.com 通过包级变量运行时覆盖。
+	botgoConstant.APIDomain = qqAPIHostDefault
+	botgoConstant.SandBoxAPIDomain = qqSandboxAPIHost
+	botgoConstant.TokenDomain = qqAPIHostDefault
 	botgo.SetLogger(botGoLogger{})
 	core.GinApi(core.POST, webhookPath, receiveWebhook)
 	initOnboard()
@@ -215,6 +221,14 @@ func init() {
 			return &storage.Final{EndFunc: configRestart.schedule}
 		})
 	}
+	// 平台托管入群自动审批策略：群列表 / QQ 白名单变更时自动同步（不重启适配器）；
+	// 官方策略持久存在，适配器启动时不触发同步。
+	storage.Watch(settings, "join_strategy_groups", func(old, new, key string) *storage.Final {
+		return &storage.Final{EndFunc: joinStrategySync.schedule}
+	})
+	storage.Watch(settings, "join_strategy_whitelist", func(old, new, key string) *storage.Final {
+		return &storage.Final{EndFunc: joinStrategySync.schedule}
+	})
 	go func() {
 		time.Sleep(2 * time.Second)
 		restart()
@@ -234,7 +248,9 @@ func buildQQGuildHandlers() dto.Intent {
 	if settings.GetBool("public_bot", false) {
 		handlers = append(handlers, event.MessageEventHandler(handleGuildMessage))
 	}
-	return event.RegisterHandlers(handlers...)
+	// 1<<24 = GROUP_MEMBER intent：订阅群成员进退事件
+	// （GROUP_MEMBER_ADD / GROUP_MEMBER_REMOVE），经 PlainEventHandler 分发。
+	return event.RegisterHandlers(handlers...) | (1 << 24)
 }
 
 func restart() {
@@ -317,8 +333,7 @@ func run(ctx context.Context, generation uint64, appID, appSecret, mode string) 
 		return b.reply(ctx, msg)
 	})
 	b.adapter.SetActionHandler(func(options map[string]interface{}) string {
-		b.handleAction(ctx, options)
-		return ""
+		return b.handleAction(ctx, options)
 	})
 	go b.cleanupCaches(ctx)
 
@@ -675,6 +690,13 @@ func handlePlainEvent(payload *dto.WSPayload, message []byte) error {
 		}
 		msg := dto.Message(*data)
 		return dispatchMessage(&msg, sceneGroup)
+	case "GROUP_JOIN_REQUEST":
+		// 用户申请加群（intents 1<<25 群域），按 group_join_auto_approve 配置自动审批。
+		return handleGroupJoinRequest(message)
+	case "GROUP_MEMBER_ADD", "GROUP_MEMBER_REMOVE":
+		return handleGroupMemberEvent(string(payload.Type), message)
+	case "GROUP_ADD_ROBOT", "GROUP_DEL_ROBOT", "GROUP_MSG_RECEIVE", "GROUP_MSG_REJECT":
+		return handleGroupManageNoticeEvent(string(payload.Type), message)
 	}
 	return nil
 }
@@ -697,6 +719,27 @@ func (b *bot) receive(message *dto.Message, scene string) error {
 		return nil
 	}
 	content := strings.TrimSpace(qqmessage.ETLInput(message.Content))
+	// C2C/群聊的纯媒体消息 content 为空，附件转成 CQ 码，避免消息被当作空内容丢弃；
+	// 官方返回的 url 可能被反引号包裹，需去掉。
+	for _, attachment := range message.Attachments {
+		if attachment == nil {
+			continue
+		}
+		url := strings.Trim(strings.TrimSpace(attachment.URL), "`")
+		if url == "" {
+			continue
+		}
+		contentType := strings.ToLower(attachment.ContentType)
+		cqType := "image"
+		switch {
+		case strings.HasPrefix(contentType, "video"):
+			cqType = "video"
+		case strings.HasPrefix(contentType, "voice"):
+			cqType = "record"
+		}
+		content += fmt.Sprintf(" [CQ:%s,url=%s]", cqType, url)
+	}
+	content = strings.TrimSpace(content)
 	userID := strings.TrimSpace(message.Author.ID)
 	if content == "" || userID == "" {
 		return nil
@@ -714,6 +757,10 @@ func (b *bot) receive(message *dto.Message, scene string) error {
 		chatID = strings.TrimSpace(message.GroupID)
 		chatName = chatID
 		b.rememberChatScene(chatID, sceneGroup)
+		// 入群审核：群内有待审申请时，管理员回复 1 通过 / 0 拒绝，消息不再进入核心。
+		if b.handleJoinReviewReply(chatID, content, message.ID) {
+			return nil
+		}
 	case sceneC2C:
 		// C2C uses the author openid as the reply target and has no chat id.
 		b.rememberChatScene(userID, sceneC2C)
@@ -1230,25 +1277,29 @@ func (b *bot) sendRichMedia(ctx context.Context, scene, target, fileInfo, conten
 }
 
 // handleAction serves core Action requests; delete_message retracts a previously
-// received message through the scene-specific retract endpoint.
-func (b *bot) handleAction(ctx context.Context, options map[string]interface{}) {
+// received message through the scene-specific retract endpoint. Group-management
+// actions return their result as a JSON string for the calling plugin.
+func (b *bot) handleAction(ctx context.Context, options map[string]interface{}) string {
+	if handled, result := b.handleGroupManageAction(ctx, options); handled {
+		return result
+	}
 	if strings.ToLower(strings.TrimSpace(stringValue(options["type"]))) != "delete_message" {
-		return
+		return ""
 	}
 	messageID := strings.TrimSpace(stringValue(options["message_id"]))
 	if messageID == "" {
-		return
+		return ""
 	}
 	value, ok := b.msgCtx.Load(messageID)
 	if !ok {
 		core.Logs.Warn("qqguild撤回消息失败：未记录消息 %s 的上下文", messageID)
-		return
+		return ""
 	}
 	item, ok := value.(msgContext)
 	if !ok || time.Now().UnixMilli() >= item.expiresAt {
 		b.msgCtx.Delete(messageID)
 		core.Logs.Warn("qqguild撤回消息失败：消息 %s 上下文已过期", messageID)
-		return
+		return ""
 	}
 	requestCtx, cancel := context.WithTimeout(ctx, 12*time.Second)
 	defer cancel()
@@ -1265,10 +1316,11 @@ func (b *bot) handleAction(ctx context.Context, options map[string]interface{}) 
 	}
 	if err != nil {
 		core.Logs.Warn("qqguild撤回消息 %s 失败：%v", messageID, err)
-		return
+		return ""
 	}
 	b.msgCtx.Delete(messageID)
 	core.Logs.Info("qqguild已撤回消息：%s", messageID)
+	return ""
 }
 
 func (b *bot) rememberDirect(userID, guildID string) {

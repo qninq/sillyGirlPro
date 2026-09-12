@@ -16,6 +16,7 @@ SillyGirl 的插件系统基于外部脚本运行时。插件使用 JavaScript/N
 - [全局对象与 API](#全局对象与-api)
   - [sender (s)](#sender-s)
   - [Bucket(name)](#bucketname)
+  - [群管理能力（QQ 官方机器人）](#群管理能力qq-官方机器人)
   - [QingLong 内联客户端](#qinglong-内联客户端)
   - [DaiDai 内联客户端](#daidai-内联客户端)
   - [Cron()](#cron)
@@ -541,6 +542,8 @@ s.reply(`[CQ:video,url=https://example.com/a.mp4]`)
 - QQ 官方机器人（`qqguild`）：群聊和 C2C 私聊支持图片/视频/语音/文件（HTTP 链接），文字随首条媒体一起发送；频道仅支持单张图片 URL。
 - 其他平台的媒体支持见[适配器指南](adapters.md)；不支持的媒体链接会被忽略并记录日志。
 
+接收媒体消息同样以 CQ 码呈现：QQ 官方机器人群聊/C2C 收到的图片、视频、语音会由适配器自动转成 `[CQ:image,url=...]`、`[CQ:video,url=...]`、`[CQ:record,url=...]` 并入消息内容，`s.getMsg()` / `s.param(n)` 拿到的是含 CQ 码的完整内容，可据此转发、存储或提取 URL。
+
 #### 参数捕获
 
 ```js
@@ -553,13 +556,22 @@ s.getAllMatch()     // 获取所有匹配组（二维数组）
 
 #### 群管功能
 
+**注意**：核心 Go 层保留了 `GroupKick` / `GroupBan` 等群管接口（通过自定义 CQ 码 `kick` / `ban` 经 reply 通道下发），但当前**没有任何适配器解析执行这些 CQ 码**，且 JS / Python 插件 SDK 未暴露 `s.kick` / `s.unkick` / `s.ban` / `s.unban` / `s.recallMessage` 方法（`GroupUnkick` 亦为空实现）——以上 AutMan 遗留写法在脚本插件中不可用。
+
+QQ 官方机器人的踢人、禁言、审批、撤回等能力已完整打通，统一通过 `s.doAction` 调用（详见[群管理能力](#群管理能力qq-官方机器人)）：
+
 ```js
-s.kick(userId)          // 踢出群成员
-s.unkick(userId)        // 取消踢出
-s.ban(userId, duration) // 禁言，duration 为秒数
-s.unban(userId)         // 解除禁言
-s.recallMessage(messageId)  // 撤回消息
+await s.doAction({ type: "group_member_remove", group_id: "群openid", member_openids: ["成员openid"] });  // 踢出
+await s.doAction({ type: "group_mute", group_id: "群openid", members: [{ op: "add", member_openid: "成员openid", mute_expire_at: "RFC3339时间" }] });  // 禁言
+await s.doAction({ type: "group_mute", group_id: "群openid", members: [{ op: "del", member_openid: "成员openid" }] });  // 解除禁言
+await s.doAction({ type: "delete_message", message_id: "消息ID" });  // 撤回 30 分钟内接收过的消息
 ```
+
+```python
+await s.doAction({"type": "group_member_remove", "group_id": "群openid", "member_openids": ["成员openid"]})
+```
+
+关于「取消踢出」：QQ 平台没有撤销踢出的机制，成员被移出后只能由群成员重新邀请入群；若踢出时勾选了拉黑，可通过 `group_blacklist_update`（`op: "remove"`）将其移出群黑名单后重新邀请。
 
 ### Bucket(name)
 
@@ -591,6 +603,122 @@ bucket.count();        // 获取键数量（number）
 ```
 
 **作用域说明**：每个 Bucket 是独立的命名空间，不同插件建议使用不同的 Bucket 名称，避免键冲突。Bucket 名称支持点号分层（如 `myapp.config`、`myapp.users`），管理后台「存储桶」页按首段分组展示成可折叠卡片，建议按 `插件名.数据类别` 命名。
+
+### 群管理能力（QQ 官方机器人）
+
+`qqguild` 适配器向插件开放群管理动作，通过 `s.doAction(options)` 调用（Python 为 `await s.doAction(options)`），返回统一结构 `{ ok: boolean, data?: object, error?: string }`。**仅 QQ 官方机器人平台支持**，其它平台调用返回空对象，请做好判空。
+
+```js
+const { sender: s } = require("sillygirl");
+
+const result = await s.doAction({ type: "group_info", group_id: "群openid" });
+if (result && result.ok) {
+  await s.reply(`群名：${result.data.group_name}，成员 ${result.data.group_member_num} 人`);
+} else {
+  await s.reply(`调用失败：${(result && result.error) || "当前平台不支持"}`);
+}
+```
+
+群 openid 从群消息的 `s.getChatId()` 获取（群聊场景下即 `group_openid`；C2C 私聊该值为空）。被操作的成员使用 `member_openid`（群内成员身份）。
+
+支持的动作与参数：
+
+| `type` | 参数 | 说明 |
+|---|---|---|
+| `group_info` | `group_id` | 群基本信息（30 QPM，内邀） |
+| `group_bot_state` | `group_id` | 机器人群内状态 |
+| `group_member_list` | `group_id`, `cursor?` | 成员列表，每页最多 30 条，`data.next_cursor` 翻页（内邀） |
+| `group_member_info` | `group_id`, `member_openid` | 成员详情（内邀） |
+| `group_member_remove` | `group_id`, `member_openids[]`, `add_to_blacklist?` | 批量移除（≤20 人，可同时拉黑，内邀） |
+| `group_blacklist` | `group_id`, `cursor?`, `limit?` | 群黑名单查询（内邀） |
+| `group_blacklist_update` | `group_id`, `op: add\|remove`, `member_openids[]` | 黑名单增删（≤20 人，内邀） |
+| `group_join_requests` | `group_id`, `cursor?`, `limit?` | 入群申请列表 |
+| `group_join_approve` | `group_id`, `member_openid`, `op: approve\|decline`, `join_request_id?`, `reject_reason?`, `add_to_blacklist?` | 审批入群申请 |
+| `group_mute` | `group_id`, `members[]` | 禁言，`members` 为 `[{op: add\|update\|del, member_openid, mute_expire_at(RFC3339)}]`，单次 ≤10 人，仅普通成员 |
+| `group_mute_setting` | `group_id` | 查询禁言状态 |
+| `join_strategy_list` | `limit?` | 平台托管自动审批策略列表（平台最多 20 个策略） |
+| `join_strategy_create` | `group_openids[]`, `is_enable: on\|off`, `remark?` | 创建托管策略（≤100 个群） |
+| `join_strategy_update` | `strategy_id`, `is_enable?`, `remark?` | 更新策略 |
+| `join_strategy_delete` | `strategy_id` | 删除策略 |
+| `join_strategy_execute` | `strategy_id` | 立即执行策略 |
+| `join_strategy_whitelist` | `strategy_id`, `op: add\|remove`, `whitelist_users[]` | 策略 QQ 号白名单（≤10000 个） |
+
+错误处理：`result.error` 携带失败原因；错误码 `11253` 表示对应接口处于官方内邀阶段（成员列表、成员详情、批量移除、黑名单），未开通的机器人不可用；禁言、审批等操作要求机器人具备群管理员身份。
+
+完整示例——群管理工具（仅群聊可用）：
+
+```js
+/**
+ * @title 群管理工具
+ * @name group-admin.js
+ * @author demo
+ * @version v1.0.0
+ * @desc 群成员列表 / 禁言 / 解禁 / 踢出（QQ 官方机器人）
+ * @rule raw ^群成员列表$
+ * @rule raw ^禁言\s+(\S+)\s+(\d+)$
+ * @rule raw ^解禁\s+(\S+)$
+ * @rule raw ^踢出\s+(\S+)$
+ * @admin true
+ * @status true
+ */
+
+const { sender: s } = require("sillygirl");
+
+async function doAction(payload) {
+  const result = await s.doAction(payload);
+  if (result && result.ok) return result;
+  throw new Error((result && result.error) || "当前平台不支持群管理");
+}
+
+async function main() {
+  const content = String((await s.getMsg()) || "").trim();
+  const groupId = String((await s.getChatId()) || "").trim();
+  if (!groupId) {
+    await s.reply("请在目标群里使用本指令。");
+    return;
+  }
+  let match;
+  if ((match = content.match(/^群成员列表$/))) {
+    const result = await doAction({ type: "group_member_list", group_id: groupId });
+    const members = result.data.members || [];
+    const lines = members.map(
+      (m, i) => `${i + 1}. ${m.username || m.member_openid}（${m.member_role}）`,
+    );
+    await s.reply(`【群成员】${lines.length ? "\n" + lines.join("\n") : "暂无数据"}`);
+    return;
+  }
+  if ((match = content.match(/^禁言\s+(\S+)\s+(\d+)$/))) {
+    const expireAt = new Date(Date.now() + parseInt(match[2], 10) * 1000).toISOString();
+    await doAction({
+      type: "group_mute",
+      group_id: groupId,
+      members: [{ op: "add", member_openid: match[1], mute_expire_at: expireAt }],
+    });
+    await s.reply(`已禁言 ${match[1]} ${match[2]} 秒。`);
+    return;
+  }
+  if ((match = content.match(/^解禁\s+(\S+)$/))) {
+    await doAction({
+      type: "group_mute",
+      group_id: groupId,
+      members: [{ op: "del", member_openid: match[1] }],
+    });
+    await s.reply(`已解除 ${match[1]} 的禁言。`);
+    return;
+  }
+  if ((match = content.match(/^踢出\s+(\S+)$/))) {
+    await doAction({
+      type: "group_member_remove",
+      group_id: groupId,
+      member_openids: [match[1]],
+      add_to_blacklist: false,
+    });
+    await s.reply(`已移出 ${match[1]}。`);
+  }
+}
+
+main();
+```
 
 ### plugin.Form 插件配置表单
 
@@ -984,6 +1112,8 @@ if (!result) {
   s.reply("注册超时，请重试。");
 }
 ```
+
+> 超时未收到匹配消息时，`s.listen()` 返回 `null`，可据此处理超时分支；不要在返回值上假设一定是 Sender。
 
 ### 监听选项
 

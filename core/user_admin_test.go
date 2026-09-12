@@ -10,7 +10,7 @@ import (
 
 func TestAdminNormalUserLifecycle(t *testing.T) {
 	username := fmt.Sprintf("admin_test_%d", time.Now().UnixNano())
-	_, err := createNormalUser(username, "initial-password", "初始昵称")
+	_, err := createNormalUser(username, "initial-password", "初始昵称", "")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -444,7 +444,7 @@ func TestGroupRichMediaReplyUploadsThenSends(t *testing.T) {
 		t.Fatalf("transport calls = %d, want upload + send", len(api.transport))
 	}
 	upload := api.transport[0]
-	if upload.method != http.MethodPost || upload.url != "https://api.sgroup.qq.com/v2/groups/group-9/files" {
+	if upload.method != http.MethodPost || upload.url != "https://api.bot.qq.com/v2/groups/group-9/files" {
 		t.Fatalf("upload call = %+v", upload)
 	}
 	uploadBody := upload.body.(map[string]interface{})
@@ -452,7 +452,7 @@ func TestGroupRichMediaReplyUploadsThenSends(t *testing.T) {
 		t.Fatalf("upload body = %+v", uploadBody)
 	}
 	send := api.transport[1]
-	if send.url != "https://api.sgroup.qq.com/v2/groups/group-9/messages" {
+	if send.url != "https://api.bot.qq.com/v2/groups/group-9/messages" {
 		t.Fatalf("send call = %+v", send)
 	}
 	sendBody := send.body.(map[string]interface{})

@@ -1873,6 +1873,9 @@ export function useAdminController() {
     qqguild_markdown: boolean;
     qqguild_at: boolean;
     qqguild_debug: boolean;
+    qqguild_group_join_auto_approve: "off" | "approve" | "decline";
+    qqguild_join_strategy_groups: string;
+    qqguild_join_strategy_whitelist: string;
     pagermaid_enable: boolean;
     pagermaid_token: string;
     pagermaid_debug: boolean;
@@ -1938,6 +1941,9 @@ export function useAdminController() {
       qqguild_markdown: false,
       qqguild_at: true,
       qqguild_debug: false,
+      qqguild_group_join_auto_approve: "off",
+      qqguild_join_strategy_groups: "",
+      qqguild_join_strategy_whitelist: "",
       pagermaid_enable: true,
       pagermaid_token: "",
       pagermaid_debug: false,
@@ -2206,6 +2212,14 @@ export function useAdminController() {
         qqguild_markdown: boolSetting(data["qqguild.markdown"]),
         qqguild_at: boolSetting(data["qqguild.at"], true),
         qqguild_debug: boolSetting(data["qqguild.debug"]),
+        qqguild_group_join_auto_approve:
+          data["qqguild.group_join_auto_approve"] === "approve"
+            ? "approve"
+            : data["qqguild.group_join_auto_approve"] === "decline"
+              ? "decline"
+              : "off",
+        qqguild_join_strategy_groups: data["qqguild.join_strategy_groups"] || "",
+        qqguild_join_strategy_whitelist: data["qqguild.join_strategy_whitelist"] || "",
         pagermaid_enable: boolSetting(data["pagermaid.enable"], true),
         pagermaid_token: data["pagermaid.token"] || "",
         pagermaid_debug: boolSetting(data["pagermaid.debug"]),
@@ -2269,6 +2283,9 @@ export function useAdminController() {
         "qqguild.markdown": !!v.qqguild_markdown,
         "qqguild.at": !!v.qqguild_at,
         "qqguild.debug": !!v.qqguild_debug,
+        "qqguild.group_join_auto_approve": v.qqguild_group_join_auto_approve,
+        "qqguild.join_strategy_groups": v.qqguild_join_strategy_groups || "",
+        "qqguild.join_strategy_whitelist": v.qqguild_join_strategy_whitelist || "",
         "pagermaid.enable": !!v.pagermaid_enable,
         "pagermaid.token": v.pagermaid_token || "",
         "pagermaid.debug": !!v.pagermaid_debug,

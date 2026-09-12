@@ -114,7 +114,16 @@ const nodeRuntimePreloadScript = `
       process.exit(0);
     }
     function scheduleFinish() { if (finishScheduled) return; finishScheduled = true; process.nextTick(function () { finishScheduled = false; finishIfReady(); }); }
-    function PluginForm(schema) { exported.plugin = normalizeSchema(schema); scheduleFinish(); return this; }
+    function PluginForm(schema) {
+      exported.plugin = normalizeSchema(schema);
+      scheduleFinish();
+      // 收集模式下脚本顶层常会继续调用 ConfigDB.get() / userConfig 等运行时方法，
+      // 提供空实现避免脚本崩溃导致 schema 收集失败、后台表单首次不可配置。
+      this.userConfig = {};
+      this.get = function () {};
+      this.set = function (values) { if (values && typeof values === "object") this.userConfig = values; };
+      return this;
+    }
     const pluginForm = Object.assign(function (schema) { return new PluginForm(schema); }, helpers, { defaults: fields => defaults(normalizeSchema(fields)) });
     const dummy = new Proxy(function () {}, { get: () => dummy, apply: () => dummy, construct: () => dummy });
     const sg = {

@@ -471,6 +471,32 @@ function onQQguildOnboardConfirmed(payload: {
             v-model:checked="botSettings.form.qqguild_debug"
           />
         </Form.Item>
+        <fieldset class="bot-mode-fieldset">
+          <legend>入群申请审核</legend>
+          <Segmented
+            v-model:value="botSettings.form.qqguild_group_join_auto_approve"
+            block
+            :options="[
+              { label: '人工（回复 1/0）', value: 'off' },
+              { label: '自动通过', value: 'approve' },
+              { label: '自动拒绝', value: 'decline' },
+            ]"
+          />
+        </fieldset>
+        <Form.Item
+          label="平台自动审批策略 · 群列表"
+          html-for="bot-qqguild-strategy-groups"
+          extra="可选：逗号分隔群 openid；配置后由 QQ 官方服务端托管审批（机器人离线也生效），保存时自动创建/更新平台策略。"
+        >
+          <Input.TextArea id="bot-qqguild-strategy-groups" v-model:value="botSettings.form.qqguild_join_strategy_groups" name="qqguild-strategy-groups" :rows="2" placeholder="9EE1A9B2A1DAA44F92450B68BD8BF048,3E5D8A1F7B2C9E4D" />
+        </Form.Item>
+        <Form.Item
+          label="平台自动审批策略 · QQ 号白名单"
+          html-for="bot-qqguild-strategy-whitelist"
+          extra="可选：逗号分隔 QQ 号（换行也可），白名单内 QQ 自动通过；留空不限制。"
+        >
+          <Input.TextArea id="bot-qqguild-strategy-whitelist" v-model:value="botSettings.form.qqguild_join_strategy_whitelist" name="qqguild-strategy-whitelist" :rows="2" placeholder="123456,654321" />
+        </Form.Item>
       </Form>
 
       <Form

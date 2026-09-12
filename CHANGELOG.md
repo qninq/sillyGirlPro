@@ -1,3 +1,36 @@
+## v1.2.8 - 2026-09-12
+
+### 插件运行时修复
+
+- **修复带 `plugin.Form` 的插件首次无法在后台配置**：schema 自动收集模式下 `new plugin.Form({...})` 返回的实例缺少 `get()` / `userConfig` 等运行时方法，插件顶层一旦调用（如 `ConfigDB.get()`）收集脚本即崩溃，导致后台「插件配置」直到消息触发前一直是空的。Node（node_runtime_preload）与 Python（_PluginForm）收集模式均已补齐兜底实现，插件加载后表单即可配置。
+
+- **修复 `Bucket("名称")` 无 `new` 调用抛 `TypeError`**：内置运行时将 `Bucket` 以 class 导出，而文档与模板示例均为 `const bucket = Bucket("myapp")` 不带 `new` 的写法，插件一旦在顶层直接建桶即崩溃（`Class constructor Bucket cannot be invoked without 'new'`）。现以工厂函数导出，`Bucket("name")` 与 `new Bucket("name")` 两种写法均可用；已同步部署到插件环境的 `node_modules/sillygirl`。
+
+- **修复 `s.listen()` 监听超时导致插件进程退出**：Node SDK 的 `listen` 收到核心超时下发的 END 消息时仅 `call.cancel()` 而未结束 promise——cancel 触发 gRPC `error` 事件使 promise reject，而插件常以 `return s.listen({...})` 方式调用（try/catch 不拦截 return 的 promise），rejection 一路冒泡到无 catch 的 `main()`，形成未捕获的 Promise rejection 使插件进程以 `exit status 1` 退出（日志表现为 `node:internal/process/promises:394` + `插件进程执行失败：exit status 1`）。现改为收到 END 先 `resolve(null)` 再取消流，监听超时后 promise 以 null 正常结束（插件侧 `await s.listen()` 返回 null 可据此判断超时），「消息与群管理」插件人工客服 60 秒未回复即崩溃的问题随之修复。
+
+### 测试与验证
+
+- **修复 core 测试集无法编译**：`createNormalUser` 新增 `email` 参数后，`auth_header_integration_test.go`（2 处）与 `user_admin_test.go`（1 处）仍按 3 参调用，`go vet ./...` 与 `go test ./...` 在 core 包整体报 `build failed`，security_regression、plugin_parse、cron_overlap、auth、bucket、task_cron 等约 40 个用例长期无法执行。现补齐调用参数，`go vet ./...` 与 `go test ./...` 全绿。
+- **校正配置表单兜底语义的测试契约**：`TestFinishPythonDependencyInstallRetriesPluginConfigSchema` 原本断言「依赖未安装时配置注册必须失败」。Python 收集预加载只执行 import、Form 依赖定义与 Form 调用本身，缺失导入会解析为惰性占位对象，因此顶层 `plugin.Form(...)` 仍能导出 schema。现改为验证兜底语义：依赖缺失时注册成功且字段标题为空占位，依赖安装后重注册取得真实标题。（Node 预加载会执行整个入口文件，同一守卫在 Node 下仍会失败，两端行为差异已知。）
+
+### 文档
+
+- **界面截图文档对齐实际产物**：`docs/screenshots.md` 标注的截图版本由 `v1.1.2` 更正为图片实际显示的 `v1.0.8`，并说明截图早于当前版本；概览页说明同步 SmallCat 面板已于 `v1.2.3` 移除（当前只统计青龙与呆呆两类容器）；存储管理说明改为按截图（顶部桶选择器 + 扁平键值表格）描述，并注明当前版本已改为「数据桶目录 + 键值表格」；页面总览表新增「截图」列，标注插件开发页暂无截图。
+- **适配器文档修正动作调用方式**：`docs/adapters.md` 中群管理动作的调用入口由并不存在的 `adapter.action` 更正为 `s.doAction({ type, ... })`（适配器侧对应构造参数 `actionHandler`），并删除重复的 `group_join_auto_approve` 配置行。
+- **前端架构文档更新计数**：`frontend/ARCHITECTURE.md` 的后台视图数由 11 更正为 14，domain composables 列表补全 plugin editor 与 scripts。
+- **插件配置预加载注释与实现对齐**：`core/python_runtime.go` 中「不掩盖语法错误或其它运行时异常」的表述与实际节点筛选行为不符，改为明确说明只执行 import、Form 依赖定义与 Form 调用本身，顶层守卫语句不会执行。
+- **插件编写技能参考修正无效 SDK 方法**：`skills/sillygirl-plugin-writer` 中 `s.getUsername()` 更正为 SDK 实际导出的 `s.getUserName()`；SDK 未暴露的 `s.recallMessage()` 改为 `s.doAction({ type: "delete_message", message_id })`（当前仅 QQ 官方机器人支持）。另修正规则示例——`raw` 规则按原样匹配正则且不产生命名捕获，故「消息捕获 / 搬运 / Python」三处示例去掉 `raw` 前缀、改用 `[占位符]` 配合 `s.param()`，SKILL 说明同步澄清 raw 与占位符的适用边界。
+
+### QQ 官方机器人适配器（qqguild）
+
+- **接口域名跟随官方统一迁移**：官方 2026-08-10 起所有 OpenAPI 接口（含 access_token 获取）统一为 `api.bot.qq.com`；适配器默认域名已从 `api.sgroup.qq.com`/`bots.qq.com` 迁移，botgo v0.2.1 内置旧域名通过运行时变量覆盖。
+- **群管理事件接入**：WebSocket 模式新增订阅 `GROUP_MEMBER`（1<<24）intent，经 Plain 事件分发处理群成员进群/退群（`GROUP_MEMBER_ADD`/`GROUP_MEMBER_REMOVE`）、机器人被拉入/移出群（`GROUP_ADD_ROBOT`/`GROUP_DEL_ROBOT`）、主动消息开关（`GROUP_MSG_RECEIVE`/`GROUP_MSG_REJECT`）与入群申请（`GROUP_JOIN_REQUEST`），全部记录日志。
+- **入群申请审核（事件驱动，无需拉取）**：新增 `qqguild.group_join_auto_approve` 配置——`off`（默认）时收到 `GROUP_JOIN_REQUEST` 事件自动在群里提示「收到「昵称」的入群申请，回复 1 通过 / 0 拒绝」，管理员直接回复 `1` / `0` 即完成审批（结果被动回复该消息，不占主动消息额度；多条申请按 FIFO 排队逐条处理，每群最多 10 条、2 小时有效）；`approve` / `decline` 则收到申请直接自动通过/拒绝。审核指令仅在群内有待审申请时被消费，不影响其它「1」「0」类消息。
+- **全部配置表单化，不再需要去存储页改桶**：BOT 管理页「QQ 官方频道」设置弹窗新增「入群申请审核」模式切换（人工 1/0 / 自动通过 / 自动拒绝）、平台自动审批策略的群列表与 QQ 号白名单（逗号分隔）；对应 `group_join_auto_approve`、`join_strategy_groups`、`join_strategy_whitelist` 均已加入 Admin Bots 设置接口。
+- **平台托管自动审批策略自动同步**：配置策略群列表后，适配器自动在官方侧创建/更新 remark 为 `sillygirl-auto` 的托管策略（QQ 白名单全量 add），采用**重建式同步且无本地快照**——表单保存时删除自有策略后重建，彻底单一数据源（表单 = 官方现状），机器人离线时由 QQ 官方服务端照常审批；策略群列表清空则自动删除托管策略。适配器启动时不触发同步（官方策略持久存在，与机器人生命周期无关）。
+- **群管理 Action 接口**：插件经 `adapter.action` 调用群管理能力，返回 JSON 结果——群信息 / 机器人群内状态 / 成员列表与详情 / 批量移除成员（≤20，可同时拉黑）/ 黑名单查询与增删 / 入群申请列表与审批（支持拒绝原因与拉黑）/ 群禁言设置与查询（≤10 人，仅普通成员）/ 入群自动审批策略管理（列表/创建/更新/删除/执行/白名单）。成员列表、成员详情、批量移除、黑名单为官方内邀接口，未开通时返回 11253 错误码。
+- **修复 C2C/群聊纯媒体消息被丢弃**：C2C 单聊与群聊只发图片/视频/语音时事件 `content` 为空，`receive()` 原先按空内容直接丢弃，导致等用户回复的插件（如人工客服的 `s.listen`）收不到消息、直至超时。现把附件转换为 CQ 码并入内容（`image/*` → `[CQ:image,url=...]`、`video/*` → `[CQ:video,...]`、`voice` → `[CQ:record,...]`，官方返回的 url 去除反引号包裹），媒体消息可正常进入核心触发插件；插件取到的内容含 CQ 码，可直接转发或存储。
+
 ## v1.2.7 - 2026-09-10
 
 ### 插件运行时修复

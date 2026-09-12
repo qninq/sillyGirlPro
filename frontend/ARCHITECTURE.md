@@ -21,7 +21,7 @@
 ## 状态与业务逻辑
 
 - `src/composables/admin/useAdminController.ts` 负责编排认证、路由、插件市场、BOT 和跨功能刷新。
-- 独立资源逻辑位于 `src/composables/admin/use*Admin.ts`，目前已拆分 storage、users、tasks、panels、replies、masters、carry 和 message rules。
+- 独立资源逻辑位于 `src/composables/admin/use*Admin.ts`，目前已拆分 storage、normal users、tasks、panels、replies、masters、carry、message rules、plugin editor 和 scripts。
 - `src/components/admin/adminViewContext.ts` 使用 `ReturnType<typeof useAdminController>` 推导上下文类型；功能视图通过 `useAdminViewContext()` 获取同一控制器实例，不复制状态。
 - `src/composables/admin/adminApi.ts` 统一处理 API envelope 解包。
 - 前端业务请求只发送 `GET` 和 `POST`；更新向资源 URI 提交 `POST`，删除向对应的 `deletions` 子资源提交 `POST`。
@@ -31,7 +31,7 @@
 `scripts/check-component-architecture.mjs` 在构建前检查：
 
 - 根 `App.vue` 不重新膨胀；
-- 11 个后台视图保持动态加载，禁止退回静态全量 import；
+- 14 个后台视图保持动态加载，禁止退回静态全量 import；
 - 单个功能视图和 controller 不超过当前上限；
 - domain composables、typed context 和公共品牌组件继续存在。
 - `src/` 内不得重新引入 `PUT`、`PATCH` 或 `DELETE` 请求方法。

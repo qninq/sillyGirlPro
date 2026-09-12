@@ -1,6 +1,6 @@
 # SillyGirl
 
-[![Version](https://img.shields.io/badge/version-v1.2.7-1677ff)](VERSION)
+[![Version](https://img.shields.io/badge/version-v1.2.8-1677ff)](VERSION)
 [![Go](https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go)](go.mod)
 
 SillyGirl（傻妞）是一个多平台聊天机器人框架：一套核心接入微信（ClawBot）、QQ 官方机器人、QQ 频道、Telegram、钉钉、Web 等平台，支持 JavaScript / Python / gRPC 插件、跨平台消息转发、回复规则与定时任务，自带 Web 管理后台。

@@ -275,7 +275,15 @@ func (sg *SillyGirlService) SenderAction(ctx context.Context, req *srpc.ReplyReq
 		return nil, err
 	}
 	result, err := s.Action(params)
-	return &srpc.Default{Value: string(utils.JsonMarshal(result))}, err
+	// 适配器 Action 约定返回 JSON 字符串，直接透传；其余类型才做序列化，
+	// 避免把 JSON 字符串再包一层引号导致插件侧解析成字符串。
+	var value string
+	if text, ok := result.(string); ok {
+		value = text
+	} else {
+		value = string(utils.JsonMarshal(result))
+	}
+	return &srpc.Default{Value: value}, err
 }
 
 func (sg *SillyGirlService) SenderDestroy(ctx context.Context, req *srpc.ReplyRequest) (*srpc.Empty, error) {

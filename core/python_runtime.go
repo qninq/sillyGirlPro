@@ -20,8 +20,18 @@ const pythonMinimumVersion = "3.12"
 // pythonConfigPreloadScript mirrors the Node config-registration preload: real
 // modules are preferred, while imports that are still absent during the first
 // plugin install resolve to an inert placeholder. This lets a top-level
-// form call export its schema before @depe packages are
-// installed, without hiding syntax errors or other runtime exceptions.
+// form call export its schema before @depe packages are installed (a missing
+// package must not block the admin config form from appearing).
+//
+// Only a selected subset of top-level statements runs: import statements,
+// definitions reachable from the Form call, and the Form call itself. Syntax
+// errors still surface because the source is parsed up front, but runtime
+// exceptions raised by other top-level statements are skipped rather than
+// reported — e.g. a missing-dependency guard such as
+// `if mod.TITLE != "x": raise RuntimeError(...)` never executes. The Node
+// preload runs the whole entry file, so the same guard does fail there; treat
+// top-level guards as Node-only and keep dependency checks out of the
+// registration path when both runtimes must agree.
 const pythonConfigPreloadScript = `
 from __future__ import annotations
 
@@ -253,6 +263,10 @@ class _PluginForm:
     def __call__(self, schema):
         _exported["plugin"] = _normalize_config_schema(schema)
         return self
+    def __getattr__(self, _name):
+        # 收集模式下脚本顶层可能继续调用 ConfigDB.get() 等运行时方法，
+        # 兜底返回 _Dummy 避免崩溃导致 schema 收集失败。
+        return _Dummy()
     def string(self): return _SchemaNode("string")
     def number(self): return _SchemaNode("number")
     def integer(self): return _SchemaNode("integer")

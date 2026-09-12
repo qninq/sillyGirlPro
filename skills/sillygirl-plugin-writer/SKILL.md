@@ -105,8 +105,8 @@ Use [assets/python-plugin.py](assets/python-plugin.py) as the starting file. Dec
 
 ## Rules and Parameters
 
-- Use `raw ^...$` for an exact regular expression.
-- Use placeholders such as `[城市]` for named captures.
+- Use `raw ^...$` for an exact regular expression. `raw` rules are matched verbatim and do not populate named captures, so extract values with your own regex inside the plugin.
+- Use placeholders such as `[城市]` (without `raw`) for named captures.
 - Read captures with `await s.param("城市")` or a numeric index.
 - Add multiple `[rule: ...]` lines when one plugin handles multiple commands.
 - Use `[admin: true]` and also check `await s.isAdmin()` before destructive or privileged work.
