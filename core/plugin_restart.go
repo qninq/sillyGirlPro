@@ -62,6 +62,7 @@ func schedulePluginBackgroundRestart(f *common.Function, uuid string) {
 				f.Title, pluginRestartMaxRetries,
 			)
 			delivered := notifyAdmins(content, "SillyGirl 插件告警", "")
+			recordSystemAlert("plugin-crash", f.Title+" 连续崩溃", content, delivered)
 			Logs.Warn("插件 %s 连续崩溃告警已发出（送达 %d 个渠道）", f.Title, delivered)
 		}
 		return

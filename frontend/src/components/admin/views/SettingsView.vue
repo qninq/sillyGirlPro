@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import Alert from "ant-design-vue/es/alert";
+import Popconfirm from "ant-design-vue/es/popconfirm";
 import Button from "ant-design-vue/es/button";
 import Card from "ant-design-vue/es/card";
-import { Download, Plus, Save } from "lucide-vue-next";
+import { Clock, Download, Plus, RotateCcw, Save, Trash2 } from "lucide-vue-next";
 import Form from "ant-design-vue/es/form";
 import Input from "ant-design-vue/es/input";
 import InputNumber from "ant-design-vue/es/input-number";
@@ -49,8 +50,12 @@ const {
   VNodes,
   addSettingsOption,
   announcementFormatOptions,
+  downloadAutoBackupFile,
+  deleteAutoBackupFile,
   downloadSystemBackup,
+  loadAutoBackups,
   page,
+  restoreAutoBackupFile,
   removeSettingsOption,
   saveSettings,
   settingOptionDeletable,
@@ -383,6 +388,123 @@ const {
         >
           <template #icon><Download :size="16" /></template>下载备份
         </Button>
+      </Card>
+
+      <Card size="small" class="settings-backup-card">
+        <template #title>
+          <Space size="small"
+            ><Clock :size="15" /><span
+              >定时自动备份</span
+            ></Space
+          >
+        </template>
+        <Typography.Paragraph class="settings-backup-description">
+          每天在设定的小时自动打包备份到服务器数据目录
+          <code>{{ systemBackup.auto.dir || "backups/" }}</code>
+          下，超过保留份数的旧备份自动清理。
+        </Typography.Paragraph>
+        <Space wrap style="margin-bottom: 14px">
+          <span>
+            <Switch
+              v-model:checked="settings.form.backup_auto_enable"
+              aria-label="启用定时自动备份"
+            />
+            <span style="margin-left: 8px">启用定时备份</span>
+          </span>
+          <span>
+            每天
+            <InputNumber
+              v-model:value="settings.form.backup_auto_hour"
+              :min="0"
+              :max="23"
+              style="width: 70px"
+              aria-label="备份时间（小时）"
+            />
+            点
+          </span>
+          <span>
+            保留
+            <InputNumber
+              v-model:value="settings.form.backup_auto_keep"
+              :min="1"
+              :max="90"
+              style="width: 70px"
+              aria-label="保留份数"
+            />
+            份
+          </span>
+          <Button @click="loadAutoBackups">
+            <template #icon><Clock :size="14" /></template>刷新列表
+          </Button>
+        </Space>
+
+        <Alert
+          v-if="systemBackup.auto.error"
+          type="error"
+          show-icon
+          :message="systemBackup.auto.error"
+          style="margin-bottom: 10px"
+        />
+
+        <div v-if="systemBackup.auto.files.length" class="backup-file-list">
+          <div
+            v-for="file in systemBackup.auto.files"
+            :key="file.name"
+            class="backup-file-row"
+          >
+            <span class="backup-file-name" :title="file.name">{{
+              file.name
+            }}</span>
+            <span class="backup-file-size">{{
+              (file.size / 1024 / 1024).toFixed(2)
+            }} MB</span>
+            <Space size="small">
+              <Button
+                size="small"
+                @click="downloadAutoBackupFile(file.name)"
+              >
+                <template #icon><Download :size="13" /></template>下载
+              </Button>
+              <Popconfirm
+                title="恢复会覆盖现有存储数据与文件，完成后系统自动重启。确定恢复该备份？"
+                ok-text="恢复"
+                cancel-text="取消"
+                @confirm="restoreAutoBackupFile(file.name)"
+              >
+                <Button
+                  size="small"
+                  danger
+                  :loading="
+                    systemBackup.auto.busyName === file.name &&
+                    systemBackup.auto.restoring
+                  "
+                >
+                  <template #icon><RotateCcw :size="13" /></template>恢复
+                </Button>
+              </Popconfirm>
+              <Popconfirm
+                title="确定删除该备份文件？"
+                ok-text="删除"
+                cancel-text="取消"
+                @confirm="deleteAutoBackupFile(file.name)"
+              >
+                <Button
+                  size="small"
+                  danger
+                  :loading="
+                    systemBackup.auto.busyName === file.name &&
+                    !systemBackup.auto.restoring
+                  "
+                >
+                  <template #icon><Trash2 :size="13" /></template>
+                </Button>
+              </Popconfirm>
+            </Space>
+          </div>
+        </div>
+        <Typography.Paragraph v-else class="settings-backup-description">
+          暂无自动备份文件。开启定时备份并保存设置后，将在每天设定时间自动创建。
+        </Typography.Paragraph>
       </Card>
     </Form>
   </section>

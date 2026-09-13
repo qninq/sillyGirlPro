@@ -17,6 +17,7 @@ import {
   Trash2,
 } from "lucide-vue-next";
 import type { StorageGroup } from "../../../composables/admin/useStorageAdmin";
+import { onBeforeUnmount, onMounted, ref } from "vue";
 import { useAdminViewContext } from "../adminViewContext";
 
 const {
@@ -44,6 +45,14 @@ const {
   submitRenameBucket,
   toggleStorageNode,
 } = useAdminViewContext();
+
+// 手机端表格不启用横向滚动：列自适应收窄，内容完整可见。
+const isMobileView = ref(window.innerWidth <= 768);
+const updateIsMobileView = () => {
+  isMobileView.value = window.innerWidth <= 768;
+};
+onMounted(() => window.addEventListener("resize", updateIsMobileView));
+onBeforeUnmount(() => window.removeEventListener("resize", updateIsMobileView));
 
 function groupChildren(group: StorageGroup) {
   const filter = storageState.bucketSearch.trim().toLowerCase();
@@ -246,6 +255,7 @@ function onGroupClick(group: StorageGroup) {
       <Table
         :row-key="(record: any) => record.key"
         table-layout="fixed"
+        :scroll="isMobileView ? undefined : { x: 640 }"
         :loading="storageState.loading"
         :data-source="storageState.rows"
         :pagination="{
@@ -658,7 +668,32 @@ function onGroupClick(group: StorageGroup) {
     flex: none;
   }
   .storage-content {
-    overflow: visible;
+    overflow-x: auto;
+  }
+  .storage-content {
+    overflow-x: auto;
+  }
+}
+</style>
+
+<style>
+/* 手机端取消存储表格固定列宽（内联样式需全局 !important 覆盖）：
+   列自适应收窄，空态与内容都完整可见 */
+@media (max-width: 768px) {
+  .storage-content .ant-table-wrapper {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .storage-content .ant-table {
+    min-width: 0 !important;
+  }
+  .storage-content .ant-table colgroup col {
+    width: auto !important;
+  }
+  .storage-content .ant-table table {
+    width: 100% !important;
+    min-width: 0 !important;
+    table-layout: auto !important;
   }
 }
 </style>

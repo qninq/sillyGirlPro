@@ -480,6 +480,23 @@ onBeforeUnmount(() => {
   font-size: 12px;
 }
 
+@media (max-width: 640px) {
+  .logs-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .logs-toolbar .ant-space {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .logs-toolbar .ant-space-item {
+    min-width: 0;
+  }
+  .logs-toggle-label {
+    white-space: nowrap;
+  }
+}
+
 @media (max-width: 720px) {
   .flow-row {
     grid-template-columns: 70px 56px 1fr;

@@ -2460,7 +2460,20 @@ export function useAdminController() {
     customPipxRegistry: "",
     optionSaving: {} as Record<SettingsOptionKind, boolean>,
   });
-  const systemBackup = reactive({ downloading: false });
+  const systemBackup = reactive({
+    downloading: false,
+    auto: {
+      enabled: false,
+      hour: 4,
+      keep: 7,
+      dir: "",
+      files: [] as { name: string; size: number; modified: number }[],
+      loading: false,
+      error: "",
+      busyName: "",
+      restoring: false,
+    },
+  });
   const storageBackendOptions = [
     { label: "BoltDB", value: "boltdb" },
     { label: "Redis", value: "redis" },
@@ -2571,6 +2584,11 @@ export function useAdminController() {
       storage: data["sillyGirl.storage"] === "redis" ? "redis" : "boltdb",
       redis_addr: data["sillyGirl.redis_addr"],
       redis_password: data["sillyGirl.redis_password"],
+      backup_auto_enable:
+        data["sillyGirl.backup_auto_enable"] === true ||
+        data["sillyGirl.backup_auto_enable"] === "true",
+      backup_auto_hour: Number(data["sillyGirl.backup_auto_hour"] || 4),
+      backup_auto_keep: Number(data["sillyGirl.backup_auto_keep"] || 7),
       github_proxy: githubProxyData.value || "",
       pnpm_registry: pnpmRegistryData.value || builtinPnpmRegistryOptions[0],
       pipx_registry: pipxRegistryData.value || builtinPipxRegistryOptions[0],
@@ -2595,6 +2613,9 @@ export function useAdminController() {
       "sillyGirl.storage": v.storage || "boltdb",
       "sillyGirl.redis_addr": v.redis_addr || "",
       "sillyGirl.redis_password": v.redis_password || "",
+      "sillyGirl.backup_auto_enable": !!v.backup_auto_enable,
+      "sillyGirl.backup_auto_hour": Number(v.backup_auto_hour) || 4,
+      "sillyGirl.backup_auto_keep": Number(v.backup_auto_keep) || 7,
     };
     if (v.password) updates["sillyGirl.password"] = v.password;
     if (v.smtp_password) updates["sillyGirl.smtp_password"] = v.smtp_password;
@@ -2758,6 +2779,74 @@ export function useAdminController() {
     );
   }
 
+  async function loadAutoBackups() {
+    systemBackup.auto.loading = true;
+    try {
+      const res = await get<
+        ApiEnvelope<{
+          enabled: boolean;
+          hour: number;
+          keep: number;
+          dir: string;
+          files: { name: string; size: number; modified: number }[];
+        }>
+      >("/api/admin/system-backups/auto");
+      const data = apiData(res);
+      if (data) {
+        systemBackup.auto.enabled = !!data.enabled;
+        systemBackup.auto.hour = data.hour ?? 4;
+        systemBackup.auto.keep = data.keep ?? 7;
+        systemBackup.auto.dir = data.dir || "";
+        systemBackup.auto.files = Array.isArray(data.files) ? data.files : [];
+      }
+      systemBackup.auto.error = "";
+    } catch (error) {
+      systemBackup.auto.error =
+        error instanceof Error ? error.message : "读取自动备份失败";
+    } finally {
+      systemBackup.auto.loading = false;
+    }
+  }
+
+  function downloadAutoBackupFile(name: string) {
+    const link = document.createElement("a");
+    link.href = `/api/admin/system-backups/auto/downloads?name=${encodeURIComponent(name)}&token=${encodeURIComponent(getAuthToken())}`;
+    link.download = name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+
+  async function deleteAutoBackupFile(name: string) {
+    systemBackup.auto.busyName = name;
+    try {
+      await post("/api/admin/system-backups/auto/deletions", { name });
+      message.success("备份文件已删除");
+      await loadAutoBackups();
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "删除失败");
+    } finally {
+      systemBackup.auto.busyName = "";
+    }
+  }
+
+  async function restoreAutoBackupFile(name: string) {
+    systemBackup.auto.busyName = name;
+    systemBackup.auto.restoring = true;
+    try {
+      const res = await post<ApiEnvelope<{ summary: string }>>(
+        "/api/admin/system-backups/auto/restores",
+        { name },
+      );
+      message.success(apiData(res)?.summary || "恢复完成，系统即将重启");
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "恢复失败");
+    } finally {
+      systemBackup.auto.busyName = "";
+      systemBackup.auto.restoring = false;
+    }
+  }
+
   async function downloadSystemBackup() {
     systemBackup.downloading = true;
     try {
@@ -2854,7 +2943,10 @@ export function useAdminController() {
       if (p === "storage") {
         loadStorage();
       }
-      if (p === "settings") loadSettings();
+      if (p === "settings") {
+        loadSettings();
+        loadAutoBackups();
+      }
     },
     { immediate: true },
   );
@@ -3072,6 +3164,10 @@ export function useAdminController() {
     saveQinglongPanel,
     saveReply,
     saveSettings,
+    loadAutoBackups,
+    downloadAutoBackupFile,
+    deleteAutoBackupFile,
+    restoreAutoBackupFile,
     saveTask,
     schemaFields,
     scripts,

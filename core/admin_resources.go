@@ -3,6 +3,7 @@ package core
 import (
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -27,6 +28,9 @@ var adminSettingsKeys = []string{
 	"sillyGirl.storage",
 	"sillyGirl.redis_addr",
 	"sillyGirl.redis_password",
+	"sillyGirl.backup_auto_enable",
+	"sillyGirl.backup_auto_hour",
+	"sillyGirl.backup_auto_keep",
 }
 
 var adminBotSettingsKeys = []string{
@@ -61,6 +65,18 @@ func init() {
 	})
 	GinApi(GET, "/api/admin/message-flow", RequireAuth, func(ctx *gin.Context) {
 		ApiOK(ctx, messageFlowEntries())
+	})
+	GinApi(GET, "/api/admin/alerts", RequireAuth, func(ctx *gin.Context) {
+		ApiOK(ctx, systemAlertEntries())
+	})
+	GinApi(GET, "/api/admin/message-stats", RequireAuth, func(ctx *gin.Context) {
+		days := 14
+		if parsed := ctx.Query("days"); parsed != "" {
+			if n, err := strconv.Atoi(parsed); err == nil && n > 0 && n <= 90 {
+				days = n
+			}
+		}
+		ApiOK(ctx, messageStatsRange(days))
 	})
 	GinApi(GET, "/api/admin/message-rules/:kind", RequireAuth, handleGetMessageRules)
 	GinApi(POST, "/api/admin/message-rules/:kind/:key", RequireAuth, handlePutMessageRule)

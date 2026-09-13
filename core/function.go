@@ -322,6 +322,7 @@ func initToHandleMessage() {
 				continue
 			}
 			recordMessageFlow("in", imType, uid, cid, ctt, "")
+			recordMessageStats(imType)
 			go HandleMessage(s)
 		}
 	}()

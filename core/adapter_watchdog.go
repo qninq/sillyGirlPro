@@ -63,6 +63,7 @@ func alertAdapterOffline(platform string) {
 	)
 	delivered := notifyAdmins(content, "SillyGirl 适配器掉线告警", platform)
 	recordAdapterEvent(platform, "alert", "掉线告警已发出（送达 %d 个渠道）", delivered)
+	recordSystemAlert("adapter-offline", adapterPlatformLabel(platform)+" 掉线", content, delivered)
 	Logs.Warn("适配器掉线告警：%s（送达 %d 个渠道）", platform, delivered)
 }
 

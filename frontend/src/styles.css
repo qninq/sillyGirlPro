@@ -104,6 +104,12 @@ canvas {
   border-bottom: 1px solid #edf0f5;
 }
 
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .topbar-title {
   display: flex;
   align-items: center;
@@ -1350,6 +1356,20 @@ canvas {
   .topbar-heading .muted {
     margin-left: 0 !important;
     font-size: 12px;
+  }
+
+  /* 手机端：宽表格/宽卡片让面板横向滚动，而不是撑破布局 */
+  .panel {
+    overflow-x: auto;
+  }
+
+  .ant-modal {
+    max-width: calc(100vw - 16px) !important;
+    margin: 8px auto !important;
+  }
+
+  .ant-modal .ant-modal-content {
+    padding: 16px;
   }
 
   .logout-button {

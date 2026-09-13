@@ -135,6 +135,15 @@ Base URL: `http://host:port/api`
 | `POST` | `/api/admin/message-rules/:kind/:key/deletions` |
 | `GET` | `/api/admin/bots` |
 | `GET` | `/api/admin/message-flow` |
+| `GET` | `/api/admin/alerts` |
+| `GET` | `/api/admin/message-stats` |
+| `GET` | `/api/admin/system-info` |
+| `GET` | `/api/admin/system-backups/auto` |
+| `GET` | `/api/admin/system-backups/auto/downloads` |
+| `POST` | `/api/admin/system-backups/auto/deletions` |
+| `POST` | `/api/admin/system-backups/auto/restores` |
+| `POST` | `/api/admin/system-backups/restores` |
+    
 | `GET` | `/api/admin/command-list` |
 | `POST` | `/api/admin/command-list/:key/admin` |
 | `POST` | `/api/admin/qqguild-onboard-tasks` |
@@ -146,6 +155,14 @@ Base URL: `http://host:port/api`
 `GET /api/admin/bots` 返回 `settings`（各平台配置值）、`statuses`（平台启停/连接状态/实例列表）与 `events`（各适配器最近事件环形缓冲，含实例注册/销毁与开关变更，每平台保留最近 50 条，内存态重启即清空）。
 
 `GET /api/admin/message-flow` 返回消息流水（最新在前，内存态保留最近 200 条、重启即清空）：每条消息记录 `in`（收到）、`match`（命中规则/插件，`handler` 为插件标题）与 `out`（回复）三类条目，内容截断至 120 字符，供「日志 → 消息流水」页排查消息去向。
+
+`GET /api/admin/alerts` 返回系统告警环形缓冲（最新在前，内存态保留最近 100 条、重启即清空）：适配器掉线、插件连续崩溃等告警的留痕，推送/邮件负责送达，此处负责后台「告警中心」展示。
+
+`GET /api/admin/message-stats?days=14` 返回最近 N 天（≤90）的每日消息量（总览 + 分平台），缺失日期补零；数据按天持久化在 `message_stats` 桶，保留 90 天。
+
+`GET /api/admin/system-info` 返回概览页「系统信息」卡片数据：运行时长与启动时间（取 `started_at`）、CPU / 内存占用及最近 30 个采样点（后台每 5 秒采样，gopsutil）、主程序版本、Go 版本、平台架构、进程 PID、面板端口、存储后端与数据目录。
+
+定时备份：`sillyGirl.backup_auto_enable` / `sillyGirl.backup_auto_hour` / `sillyGirl.backup_auto_keep`（默认关闭 / 每天 4 点 / 保留 7 份）在基础设置「数据备份」卡片配置；备份 ZIP 存于数据目录 `backups/` 下（文件名 `sillygirl-auto-时间戳.zip`），超份数自动清理。`POST /api/admin/system-backups/auto/restores`（`{ "name": "备份文件名" }`）从自动备份一键恢复，`POST /api/admin/system-backups/restores`（multipart 字段 `file`，≤16MB）从上传的备份恢复；恢复将**覆盖写入**备份中的存储键与数据文件（备份里没有的键保留），完成后系统自动重启加载。
 
 普通用户账号接口（Admin 用户管理）：
 

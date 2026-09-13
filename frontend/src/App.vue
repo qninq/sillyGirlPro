@@ -9,6 +9,7 @@ import Menu from "ant-design-vue/es/menu";
 import Typography from "ant-design-vue/es/typography";
 import zhCN from "ant-design-vue/es/locale/zh_CN";
 import { LogOut, Menu as MenuIcon } from "lucide-vue-next";
+import AdminAlertBell from "./components/admin/AdminAlertBell.vue";
 import AdminAuth from "./components/admin/AdminAuth.vue";
 import AdminWebChat from "./components/admin/AdminWebChat.vue";
 import { adminViewContextKey } from "./components/admin/adminViewContext";
@@ -106,9 +107,12 @@ const activeView = computed(() => adminViews[page.value] || adminViews.welcome);
                 }}</Typography.Text>
               </div>
             </div>
-            <Button class="logout-button" @click="logout"
-              ><template #icon><LogOut :size="16" /></template>退出</Button
-            >
+            <div class="topbar-right">
+              <AdminAlertBell />
+              <Button class="logout-button" @click="logout"
+                ><template #icon><LogOut :size="16" /></template>退出</Button
+              >
+            </div>
           </div>
           <main class="content">
             <component :is="activeView" />
