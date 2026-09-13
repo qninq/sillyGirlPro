@@ -61,10 +61,18 @@ func alertAdapterOffline(platform string) {
 		"⚠️ 适配器掉线告警：%s 已启用但当前没有任何在线实例，请检查后台 BOT 页与适配器日志。",
 		adapterPlatformLabel(platform),
 	)
+	delivered := notifyAdmins(content, "SillyGirl 适配器掉线告警", platform)
+	recordAdapterEvent(platform, "alert", "掉线告警已发出（送达 %d 个渠道）", delivered)
+	Logs.Warn("适配器掉线告警：%s（送达 %d 个渠道）", platform, delivered)
+}
+
+// notifyAdmins 通过其余在线平台向各平台 masters 推送告警，并在配置了邮箱验证服务时
+// 向管理员邮箱（「邮箱主体」）同步发一封告警邮件；skipPlatform 用于排除掉线平台自身。
+// 返回送达渠道数。
+func notifyAdmins(content, subject, skipPlatform string) int {
 	delivered := 0
-	// 经其余在线平台推送给各平台 masters；掉线平台本身除外。
 	for _, plt := range GetAdapterBotPlts() {
-		if strings.EqualFold(plt, platform) {
+		if skipPlatform != "" && strings.EqualFold(plt, skipPlatform) {
 			continue
 		}
 		adapter, err := GetAdapter(plt)
@@ -81,16 +89,13 @@ func alertAdapterOffline(platform string) {
 			}
 		}
 	}
-	// 邮箱通道：收件人为邮箱验证服务里的「邮箱主体」（管理员邮箱）。
 	if host, port, password, sender, ok := smtpSettings(); ok {
-		subject := "SillyGirl 适配器掉线告警"
 		body := content + "\r\n\r\n（系统邮件，请勿回复）\r\n"
 		if err := sendMail(host, port, password, sender, sender, subject, body); err == nil {
 			delivered++
 		}
 	}
-	recordAdapterEvent(platform, "alert", "掉线告警已发出（送达 %d 个渠道）", delivered)
-	Logs.Warn("适配器掉线告警：%s（送达 %d 个渠道）", platform, delivered)
+	return delivered
 }
 
 func adapterPlatformLabel(platform string) string {

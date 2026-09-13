@@ -59,6 +59,9 @@ func init() {
 			"events":   adapterEventRows(),
 		})
 	})
+	GinApi(GET, "/api/admin/message-flow", RequireAuth, func(ctx *gin.Context) {
+		ApiOK(ctx, messageFlowEntries())
+	})
 	GinApi(GET, "/api/admin/message-rules/:kind", RequireAuth, handleGetMessageRules)
 	GinApi(POST, "/api/admin/message-rules/:kind/:key", RequireAuth, handlePutMessageRule)
 	GinApi(POST, "/api/admin/message-rules/:kind/:key/deletions", RequireAuth, handleDeleteMessageRule)

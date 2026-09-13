@@ -650,6 +650,7 @@ func (sender *CustomSender) Reply(msgs ...interface{}) (string, error) {
 	content = strings.ReplaceAll(content, "\r", "\n")
 	content = adapterCompactNewlinePattern.ReplaceAllString(content, "\n\n")
 	if content != "" {
+		recordMessageFlow("out", sender.F.botplt, sender.GetUserID(), sender.GetChatID(), content, "")
 		user_id := sender.GetUserID()
 		msg := map[string]interface{}{
 			"message_id": sender.GetMessageID(),

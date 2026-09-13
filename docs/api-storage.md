@@ -134,6 +134,7 @@ Base URL: `http://host:port/api`
 | `POST` | `/api/admin/message-rules/:kind/:key` |
 | `POST` | `/api/admin/message-rules/:kind/:key/deletions` |
 | `GET` | `/api/admin/bots` |
+| `GET` | `/api/admin/message-flow` |
 | `GET` | `/api/admin/command-list` |
 | `POST` | `/api/admin/command-list/:key/admin` |
 | `POST` | `/api/admin/qqguild-onboard-tasks` |
@@ -143,6 +144,8 @@ Base URL: `http://host:port/api`
 `GET /api/admin/logs/stream` 为 SSE 实时日志流，鉴权支持 `token` 查询参数回退。
 
 `GET /api/admin/bots` 返回 `settings`（各平台配置值）、`statuses`（平台启停/连接状态/实例列表）与 `events`（各适配器最近事件环形缓冲，含实例注册/销毁与开关变更，每平台保留最近 50 条，内存态重启即清空）。
+
+`GET /api/admin/message-flow` 返回消息流水（最新在前，内存态保留最近 200 条、重启即清空）：每条消息记录 `in`（收到）、`match`（命中规则/插件，`handler` 为插件标题）与 `out`（回复）三类条目，内容截断至 120 字符，供「日志 → 消息流水」页排查消息去向。
 
 普通用户账号接口（Admin 用户管理）：
 

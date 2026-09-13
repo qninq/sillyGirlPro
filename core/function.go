@@ -321,6 +321,7 @@ func initToHandleMessage() {
 			if ignore {
 				continue
 			}
+			recordMessageFlow("in", imType, uid, cid, ctt, "")
 			go HandleMessage(s)
 		}
 	}()
@@ -394,6 +395,7 @@ func AddCommand(cmds []*common.Function) {
 	for j := range cmds {
 		applyCommandAdminOverride(cmds[j])
 		if cmds[j].OnStart && pluginExecutionEnabled(cmds[j]) {
+			clearPluginCrashState(cmds[j].UUID)
 			go func(f *common.Function) {
 				time.Sleep(time.Second)
 				f.Handle(&CustomSender{
@@ -617,6 +619,7 @@ func HandleMessage(sender common.Sender) {
 				if function.Admin && !a {
 					return
 				}
+				recordMessageFlow("match", sender.GetImType(), u, g, content, function.Title)
 				rt := function.Handle(sender)
 				if rt != nil {
 					sender.Reply(rt)

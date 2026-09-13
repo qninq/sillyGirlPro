@@ -359,6 +359,7 @@ func addNodePluginLocked(path, name, class string) error {
 				return nil
 			}
 			processes.Store(cmd, s)
+			backgroundProcessStart(uuid, cmd)
 			processes.Range(func(key, value any) bool {
 				p := key.(*exec.Cmd)
 				if p == cmd {
@@ -377,11 +378,17 @@ func addNodePluginLocked(path, name, class string) error {
 				}
 				return true
 			})
+			markPluginBackgroundStable(uuid, cmd)
 			go func() {
 				defer deleteSenderRegister(RUNTIME_ID)
 				defer processes.Delete(cmd)
+				defer backgroundProcessExit(uuid, cmd)
 				if err := cmd.Wait(); err != nil {
+					wg.Wait()
 					console.Error("插件后台进程执行失败：%v", err)
+					// 非零退出（崩溃）时按退避策略自动重启；用户停用或被重载取代时不动作。
+					schedulePluginBackgroundRestart(f, uuid)
+					return
 				}
 				wg.Wait()
 			}()
