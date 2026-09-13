@@ -1,10 +1,10 @@
 <script setup lang="ts">
+import { confirmDanger } from "../confirmDanger";
 import Button from "ant-design-vue/es/button";
 import Form from "ant-design-vue/es/form";
 import Input from "ant-design-vue/es/input";
 import Modal from "ant-design-vue/es/modal";
 import { Plus, RefreshCw, Trash2 } from "lucide-vue-next";
-import Popconfirm from "ant-design-vue/es/popconfirm";
 import Segmented from "ant-design-vue/es/segmented";
 import Space from "ant-design-vue/es/space";
 import Table from "ant-design-vue/es/table";
@@ -56,7 +56,7 @@ const {
       row-key="id"
       :loading="qinglong.loading"
       :data-source="qinglong.rows"
-      :pagination="{ total: qinglong.total, pageSize: 20 }"
+      :pagination="{ total: qinglong.total, pageSize: 10, showSizeChanger: true }"
     >
       <Table.Column title="#" :width="72">
         <template #default="{ index }">{{ index + 1 }}</template>
@@ -89,18 +89,17 @@ const {
         <template #default="{ record }">
           <Button type="text" @click="testQinglongPanel(record)">检测</Button>
           <Button type="text" @click="openQinglongPanel(record)">编辑</Button>
-          <Popconfirm
-            title="确认删除这个青龙面板？"
-            @confirm="removeQinglongPanel(record)"
-          >
-            <Button
+          <Button
               type="text"
               danger
               :title="`删除青龙面板 ${record.name || record.address}`"
               :aria-label="`删除青龙面板 ${record.name || record.address}`"
-              ><Trash2 :size="16"
+              
+              @click="confirmDanger({
+                title: '确认删除这个青龙面板？',
+                onOk: () => removeQinglongPanel(record),
+              })"><Trash2 :size="16"
             /></Button>
-          </Popconfirm>
         </template>
       </Table.Column>
     </Table>
@@ -110,7 +109,7 @@ const {
       row-key="id"
       :loading="daidai.loading"
       :data-source="daidai.rows"
-      :pagination="{ total: daidai.total, pageSize: 20 }"
+      :pagination="{ total: daidai.total, pageSize: 10, showSizeChanger: true }"
     >
       <Table.Column title="#" :width="72">
         <template #default="{ index }">{{ index + 1 }}</template>
@@ -143,18 +142,17 @@ const {
         <template #default="{ record }">
           <Button type="text" @click="testDaidaiPanel(record)">检测</Button>
           <Button type="text" @click="openDaidaiPanel(record)">编辑</Button>
-          <Popconfirm
-            title="确认删除这个呆呆面板？"
-            @confirm="removeDaidaiPanel(record)"
-          >
-            <Button
+          <Button
               type="text"
               danger
               :title="`删除呆呆面板 ${record.name || record.address}`"
               :aria-label="`删除呆呆面板 ${record.name || record.address}`"
-              ><Trash2 :size="16"
+              
+              @click="confirmDanger({
+                title: '确认删除这个呆呆面板？',
+                onOk: () => removeDaidaiPanel(record),
+              })"><Trash2 :size="16"
             /></Button>
-          </Popconfirm>
         </template>
       </Table.Column>
     </Table>

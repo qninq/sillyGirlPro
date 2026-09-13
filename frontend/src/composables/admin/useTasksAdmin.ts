@@ -124,22 +124,33 @@ export function useTasksAdmin() {
             ]
           : [],
     };
-    if (payload.task_id) {
-      await post(
-        `/api/admin/tasks/${encodeURIComponent(payload.task_id)}`,
-        payload,
-      );
-    } else {
-      await post("/api/admin/tasks", payload);
+    try {
+      if (payload.task_id) {
+        await post(
+          `/api/admin/tasks/${encodeURIComponent(payload.task_id)}`,
+          payload,
+        );
+      } else {
+        await post("/api/admin/tasks", payload);
+      }
+    } catch (error) {
+      // 后端校验失败（如触发口令未匹配插件规则）时弹出错误提示，弹窗保持打开
+      message.error(error instanceof Error ? error.message : "定时任务保存失败");
+      return;
     }
     tasks.editing = null;
     message.success("已保存");
     loadTasks();
   }
   async function removeTask(row: Task) {
-    await post(
-      `/api/admin/tasks/${encodeURIComponent(String(row.task_id || ""))}/deletions`,
-    );
+    try {
+      await post(
+        `/api/admin/tasks/${encodeURIComponent(String(row.task_id || ""))}/deletions`,
+      );
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "删除失败");
+      return;
+    }
     message.success("已删除");
     loadTasks();
   }

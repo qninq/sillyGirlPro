@@ -1,11 +1,11 @@
 <script setup lang="ts">
+import { confirmDanger } from "../confirmDanger";
 import Button from "ant-design-vue/es/button";
 import { Edit3, Plus, RefreshCw, Trash2 } from "lucide-vue-next";
 import Form from "ant-design-vue/es/form";
 import Input from "ant-design-vue/es/input";
 import InputNumber from "ant-design-vue/es/input-number";
 import Modal from "ant-design-vue/es/modal";
-import Popconfirm from "ant-design-vue/es/popconfirm";
 import Segmented from "ant-design-vue/es/segmented";
 import Select from "ant-design-vue/es/select";
 import Switch from "ant-design-vue/es/switch";
@@ -70,7 +70,7 @@ const {
       v-if="messageToolKind === 'carry'"
       row-key="chat_id"
       :data-source="carry.rows"
-      :pagination="{ total: carry.total, pageSize: 20, onChange: loadCarry }"
+      :pagination="{ total: carry.total, pageSize: 10, showSizeChanger: true, onChange: loadCarry }"
     >
       <Table.Column title="#" data-index="id" :width="64" />
       <Table.Column title="平台" data-index="platform" :width="100" />
@@ -102,13 +102,16 @@ const {
       <Table.Column title="操作" :width="150"
         ><template #default="{ record }"
           ><Button type="text" @click="openCarry(record)">编辑</Button
-          ><Popconfirm title="确认删除？" @confirm="removeCarry(record)"
-            ><Button
+          ><Button
               type="text"
               danger
               :title="`删除转发群组 ${record.chat_id}`"
               :aria-label="`删除转发群组 ${record.chat_id}`"
-              ><Trash2 :size="16" /></Button></Popconfirm></template
+              
+              @click="confirmDanger({
+                title: '确认删除？',
+                onOk: () => removeCarry(record),
+              })"><Trash2 :size="16" /></Button></template
       ></Table.Column>
     </Table>
 
@@ -118,7 +121,8 @@ const {
       :data-source="replies.rows"
       :pagination="{
         total: replies.total,
-        pageSize: 20,
+        pageSize: 10,
+        showSizeChanger: true,
         onChange: loadReplies,
       }"
     >
@@ -147,14 +151,17 @@ const {
             @click="openReply(record)"
             ><Edit3 :size="16"
           /></Button>
-          <Popconfirm title="确认删除？" @confirm="removeReply(record)"
-            ><Button
+          <Button
               type="text"
               danger
               :title="`删除回复 ${record.keyword}`"
               :aria-label="`删除回复 ${record.keyword}`"
-              ><Trash2 :size="16" /></Button
-          ></Popconfirm>
+              @click="confirmDanger({
+                title: '删除回复规则',
+                description: `确定删除「${record.keyword}」吗？删除后不可恢复。`,
+                onOk: () => removeReply(record),
+              })"
+              ><Trash2 :size="16" /></Button>
         </template>
       </Table.Column>
     </Table>
@@ -182,13 +189,17 @@ const {
         <Table.Column title="操作" :width="150"
           ><template #default="{ record }"
             ><Button type="text" @click="openMessage(record)">编辑</Button
-            ><Popconfirm title="确认删除？" @confirm="removeMessageRow(record)"
-              ><Button
-                type="text"
-                danger
-                :title="`删除 ${record.key}`"
-                :aria-label="`删除 ${record.key}`"
-                ><Trash2 :size="16" /></Button></Popconfirm></template
+            ><Button
+              type="text"
+              danger
+              :title="`删除 ${record.key}`"
+              :aria-label="`删除 ${record.key}`"
+              @click="confirmDanger({
+                title: '删除记录',
+                description: `确定删除 ${record.key} 吗？`,
+                onOk: () => removeMessageRow(record),
+              })"
+              ><Trash2 :size="16" /></Button></template
         ></Table.Column>
       </Table>
     </template>

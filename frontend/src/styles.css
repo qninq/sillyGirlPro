@@ -104,6 +104,25 @@ canvas {
   border-bottom: 1px solid #edf0f5;
 }
 
+.ant-popconfirm-inner-content {
+  padding: 12px 16px;
+}
+.ant-popconfirm-message {
+  margin-bottom: 10px;
+}
+.ant-popconfirm-buttons {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 2px;
+}
+.ant-popconfirm-buttons .ant-btn {
+  margin: 0;
+  min-width: 64px;
+  white-space: nowrap;
+}
+
 .topbar-right {
   display: flex;
   align-items: center;
@@ -141,6 +160,8 @@ canvas {
   border-radius: 8px;
   padding: 16px;
   min-width: 0;
+  /* 宽表格在窄窗口下横向滚动，避免列挤压换行错乱 */
+  overflow-x: auto;
 }
 
 .toolbar {
@@ -1278,6 +1299,13 @@ canvas {
 
 .web-chat-composer .ant-btn {
   flex: 0 0 auto;
+}
+
+@media (max-width: 1200px) {
+  /* 窗口不足以放下整行时，表格保持单行宽度并由面板横向滚动 */
+  .panel .ant-table {
+    min-width: 1080px;
+  }
 }
 
 @media (max-width: 1180px) and (min-width: 769px) {

@@ -1,9 +1,9 @@
 <script setup lang="ts">
+import { confirmDanger } from "../confirmDanger";
 import Button from "ant-design-vue/es/button";
 import Form from "ant-design-vue/es/form";
 import Input from "ant-design-vue/es/input";
 import Modal from "ant-design-vue/es/modal";
-import Popconfirm from "ant-design-vue/es/popconfirm";
 import Radio from "ant-design-vue/es/radio";
 import Space from "ant-design-vue/es/space";
 import Table from "ant-design-vue/es/table";
@@ -116,15 +116,7 @@ function onGroupClick(group: StorageGroup) {
           >
             <template #icon><Pencil :size="14" /></template>改名
           </Button>
-          <Popconfirm
-            :title="`确认删除存储桶 ${storageState.selected}？`"
-            description="删除后该桶内所有键值都会被移除，无法恢复。"
-            ok-text="确认删除"
-            cancel-text="取消"
-            :disabled="!canManageSelectedBucket"
-            @confirm="removeStorageBucket(storageState.selected)"
-          >
-            <Button
+          <Button
               danger
               size="small"
               :disabled="!canManageSelectedBucket"
@@ -132,10 +124,15 @@ function onGroupClick(group: StorageGroup) {
                 !!storageState.deletingBucket &&
                 storageState.deletingBucket === storageState.selected
               "
-            >
+            
+              @click="confirmDanger({
+                title: '`确认删除存储桶 ${storageState.selected}？`',
+                description: '删除后该桶内所有键值都会被移除，无法恢复。',
+                okText: '确认删除',
+                onOk: () => removeStorageBucket(storageState.selected),
+              })">
               <template #icon><Trash2 :size="14" /></template>删桶
             </Button>
-          </Popconfirm>
         </div>
       </div>
       <div class="storage-groups">
@@ -211,25 +208,22 @@ function onGroupClick(group: StorageGroup) {
           >
             <template #icon><Plus :size="16" /></template>新增
           </Button>
-          <Popconfirm
-            :title="`确认删除存储桶 ${storageState.selected}？`"
-            description="删除后该桶内所有键值都会被移除，无法恢复。"
-            ok-text="确认删除"
-            cancel-text="取消"
-            :disabled="!canManageSelectedBucket"
-            @confirm="removeStorageBucket(storageState.selected)"
-          >
-            <Button
+          <Button
               danger
               :disabled="!canManageSelectedBucket"
               :loading="
                 !!storageState.deletingBucket &&
                 storageState.deletingBucket === storageState.selected
               "
-            >
+            
+              @click="confirmDanger({
+                title: '`确认删除存储桶 ${storageState.selected}？`',
+                description: '删除后该桶内所有键值都会被移除，无法恢复。',
+                okText: '确认删除',
+                onOk: () => removeStorageBucket(storageState.selected),
+              })">
               <template #icon><Trash2 :size="16" /></template>删除数据桶
             </Button>
-          </Popconfirm>
         </Space>
       </div>
       <div class="toolbar-left" style="margin-bottom: 12px">
@@ -296,21 +290,19 @@ function onGroupClick(group: StorageGroup) {
               @click="openEditEntry(record)"
               ><template #icon><Pencil :size="14" /></template
             ></Button>
-            <Popconfirm
-              title="确认删除该键？"
-              ok-text="删除"
-              cancel-text="取消"
-              @confirm="deleteStorageEntry(record)"
-            >
-              <Button
+            <Button
                 danger
                 type="text"
                 size="small"
                 :title="`删除 ${record.key}`"
                 :aria-label="`删除 ${record.key}`"
-                ><template #icon><Trash2 :size="14" /></template
+                
+              @click="confirmDanger({
+                title: '确认删除该键？',
+                okText: '删除',
+                onOk: () => deleteStorageEntry(record),
+              })"><template #icon><Trash2 :size="14" /></template
               ></Button>
-            </Popconfirm>
           </template>
         </Table.Column>
       </Table>
@@ -666,9 +658,6 @@ function onGroupClick(group: StorageGroup) {
   .storage-sidebar {
     width: auto;
     flex: none;
-  }
-  .storage-content {
-    overflow-x: auto;
   }
   .storage-content {
     overflow-x: auto;

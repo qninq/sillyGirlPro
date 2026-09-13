@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import Alert from "ant-design-vue/es/alert";
-import Popconfirm from "ant-design-vue/es/popconfirm";
+import { confirmDanger } from "../confirmDanger";
 import Button from "ant-design-vue/es/button";
 import Card from "ant-design-vue/es/card";
 import { Clock, Download, Plus, RotateCcw, Save, Trash2 } from "lucide-vue-next";
@@ -465,40 +465,36 @@ const {
               >
                 <template #icon><Download :size="13" /></template>下载
               </Button>
-              <Popconfirm
-                title="恢复会覆盖现有存储数据与文件，完成后系统自动重启。确定恢复该备份？"
-                ok-text="恢复"
-                cancel-text="取消"
-                @confirm="restoreAutoBackupFile(file.name)"
-              >
-                <Button
+              <Button
                   size="small"
                   danger
                   :loading="
                     systemBackup.auto.busyName === file.name &&
                     systemBackup.auto.restoring
                   "
-                >
+                
+              @click="confirmDanger({
+                title: '恢复会覆盖现有存储数据与文件，完成后系统自动重启。确定恢复该备份？',
+                okText: '恢复',
+                onOk: () => restoreAutoBackupFile(file.name),
+              })">
                   <template #icon><RotateCcw :size="13" /></template>恢复
                 </Button>
-              </Popconfirm>
-              <Popconfirm
-                title="确定删除该备份文件？"
-                ok-text="删除"
-                cancel-text="取消"
-                @confirm="deleteAutoBackupFile(file.name)"
-              >
-                <Button
+              <Button
                   size="small"
                   danger
                   :loading="
                     systemBackup.auto.busyName === file.name &&
                     !systemBackup.auto.restoring
                   "
-                >
+                
+              @click="confirmDanger({
+                title: '确定删除该备份文件？',
+                okText: '删除',
+                onOk: () => deleteAutoBackupFile(file.name),
+              })">
                   <template #icon><Trash2 :size="13" /></template>
                 </Button>
-              </Popconfirm>
             </Space>
           </div>
         </div>

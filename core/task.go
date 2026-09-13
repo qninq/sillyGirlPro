@@ -8,13 +8,14 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/robfig/cron/v3"
 	"github.com/qninq/sillyGirlPro/core/common"
 	"github.com/qninq/sillyGirlPro/core/storage"
 	"github.com/qninq/sillyGirlPro/utils"
+	"github.com/robfig/cron/v3"
 )
 
 var tasks = MakeBucket("tasks")
@@ -23,6 +24,62 @@ var pluginCronSenders = MakeBucket("plugin_cron_senders")
 var pluginCronTriggers = MakeBucket("plugin_cron_triggers")
 
 const pluginCronTaskPrefix = "plugin-cron:"
+
+// 上次执行时间：内存态记录，键为任务 ID（重启后清空，下次执行前显示 -）。
+var taskLastRuns sync.Map
+
+func recordTaskRun(taskID string) {
+	taskID = strings.TrimSpace(taskID)
+	if taskID == "" {
+		return
+	}
+	taskLastRuns.Store(taskID, time.Now().Unix())
+}
+
+func taskLastRun(taskID string) int {
+	if v, ok := taskLastRuns.Load(strings.TrimSpace(taskID)); ok {
+		if n, ok := v.(int64); ok {
+			return int(n)
+		}
+	}
+	return 0
+}
+
+// cronNextRun 按任务的表达式推算下次执行时间；表达式无法解析时返回 0。
+func cronNextRun(schedule string) int {
+	schedule = strings.TrimSpace(schedule)
+	if schedule == "" {
+		return 0
+	}
+	if len(strings.Fields(schedule)) == 5 {
+		schedule = "0 " + schedule
+	}
+	parser := cron.NewParser(
+		cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor,
+	)
+	schedule_, err := parser.Parse(schedule)
+	if err != nil {
+		return 0
+	}
+	return int(schedule_.Next(time.Now()).Unix())
+}
+
+// taskRuleMatched 检查内容是否命中任一已启用插件/脚本的消息规则。
+func taskRuleMatched(content string) bool {
+	for _, function := range Functions {
+		if function == nil || function.Module || !pluginExecutionEnabled(function) {
+			continue
+		}
+		for i := range function.Rules {
+			if reg, err := functionRulePattern(function, i); err == nil {
+				if res := reg.FindStringSubmatch(content); len(res) > 0 {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
 
 type TasksResult struct {
 	Data  []*Tasks  `json:"data"`
@@ -49,6 +106,8 @@ type Tasks struct {
 	Scripts   []string      `json:"scripts"`  //兼容旧任务的脚本列表
 	CronID    int           `json:"cron_id"`
 	CreatedAt int           `json:"created_at"` //创建时间戳(秒)转换成日期
+	LastRun   int           `json:"last_run"`   //上次执行时间戳(秒)，内存态重启后清空
+	NextRun   int           `json:"next_run"`   //下次执行时间戳(秒)，按 Cron 表达式推算
 	Remark    string        `json:"remark"`
 	Enable    bool          `json:"enable"`
 	Handle    func()        `json:"-"`
@@ -251,11 +310,13 @@ func runTaskNow(taskID string) error {
 		if !pluginExecutionEnabled(f) {
 			return fmt.Errorf("插件未启用")
 		}
+		recordTaskRun(taskID)
 		runPluginCronFunction(f, platform)
 		return nil
 	}
 	for _, task := range pts {
 		if task.ID == taskID {
+			recordTaskRun(task.ID)
 			if task.Handle == nil {
 				return fmt.Errorf("定时任务不可执行")
 			}
@@ -330,46 +391,44 @@ func findScriptFunctionByTask(taskID, command string) (*common.Function, string)
 func RegistTasks(pt *Tasks) {
 	pt.Handle = func() {
 		content := taskTriggerContent(pt.Trigger, pt.Command)
+		// 命令匹配已安装脚本：把内容作为消息触发脚本（脚本 reply 送达接收人）。
 		if runScriptTaskCommand(pt.Command, pt.Trigger, pt.Senders) {
+			return
+		}
+		// 命令未匹配脚本：把触发口令/内容直接发送给接收人（机器人主动发送）。
+		if len(pt.Senders) == 0 {
+			console.Warn("定时任务 %s 未配置命令与接收人，已跳过", pt.Title)
 			return
 		}
 		for _, meta := range pt.Senders {
 			adapter, _ := GetAdapter(meta.Platfrom, meta.BotID)
-			if adapter != nil {
-				sender := adapter.Sender2(nil)
-				sender.SetFsps(&common.FakerSenderParams{
-					Content: content,
-					ChatID:  meta.ChatID,
-					UserID:  meta.UserID,
-				})
-				for _, script := range pt.Scripts {
-					for _, function := range Functions {
-						if function.UUID == script {
-							if !pluginExecutionEnabled(function) {
-								break
-							}
-							for i := range function.Rules {
-								reg, err := functionRulePattern(function, i)
-								if err == nil {
-									if res := reg.FindStringSubmatch(content); len(res) > 0 {
-										sender.SetMatch(res[1:])
-										sender.SetParams(function.Params[i])
-									}
-								}
-							}
-							function.Handle(sender)
-							break
-						}
-					}
-				}
+			if adapter == nil {
+				console.Error("定时任务 %s 接收平台不可用：%s(%s)", pt.Title, meta.Platfrom, meta.BotID)
+				continue
 			}
+			sender := adapter.Sender2(nil)
+			sender.SetFsps(&common.FakerSenderParams{
+				Content: content,
+				ChatID:  meta.ChatID,
+				UserID:  meta.UserID,
+			})
+			// 走正常消息匹配管线：命中系统/插件规则即触发对应命令，回复送达接收人；
+			// 未命中任何规则则不发送，记日志说明。
+			if taskRuleMatched(content) {
+				HandleMessage(sender)
+				continue
+			}
+			console.Log("定时任务 %s 未命中规则，跳过发送（%s/%s）", pt.Title, meta.Platfrom, meta.UserID)
 		}
 	}
 	if !pt.Enable {
 		pt.CronID = 0
 		return
 	}
-	cid, _ := CRON.AddJob(pt.Schedule, skipIfStillRunningCronFunc(pt.Handle))
+	cid, _ := CRON.AddJob(pt.Schedule, skipIfStillRunningCronFunc(func() {
+		recordTaskRun(pt.ID)
+		pt.Handle()
+	}))
 	pt.CronID = int(cid)
 	// console.Debug("已添加计划任务：%s(%v)", pt.Title, pt.CronID)
 }
@@ -455,6 +514,10 @@ func init() {
 		rr.Page = current
 		rr.Data = rows[begin:end]
 		for i := range rr.Data {
+			rr.Data[i].LastRun = taskLastRun(rr.Data[i].ID)
+			if rr.Data[i].Enable {
+				rr.Data[i].NextRun = cronNextRun(rr.Data[i].Schedule)
+			}
 			rr.Data[i].Icons = []interface{}{}
 			for _, script := range rr.Data[i].Scripts {
 				for _, f := range Functions {

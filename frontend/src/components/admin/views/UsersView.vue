@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import Avatar from "ant-design-vue/es/avatar";
+import { confirmDanger } from "../confirmDanger";
 import Button from "ant-design-vue/es/button";
 import { Edit3, Plus, RefreshCw, Trash2 } from "lucide-vue-next";
 import Form from "ant-design-vue/es/form";
 import Input from "ant-design-vue/es/input";
 import Modal from "ant-design-vue/es/modal";
-import Popconfirm from "ant-design-vue/es/popconfirm";
 import Space from "ant-design-vue/es/space";
 import Switch from "ant-design-vue/es/switch";
 import Table from "ant-design-vue/es/table";
@@ -62,7 +62,7 @@ function rowInitial(record: any) {
       row-key="id"
       :loading="normalUsers.loading"
       :data-source="normalUsers.rows"
-      :pagination="{ pageSize: 20, total: normalUsers.total }"
+      :pagination="{ pageSize: 10, showSizeChanger: true, total: normalUsers.total }"
     >
       <Table.Column title="#" :width="72">
         <template #default="{ index }">{{ index + 1 }}</template>
@@ -129,23 +129,21 @@ function rowInitial(record: any) {
             >
               <Edit3 :size="16" />
             </Button>
-            <Popconfirm
-              :title="`确认删除账号「${record.username}」？`"
-              description="账号、QQ/TGID 绑定将一并删除。"
-              ok-text="确认删除"
-              cancel-text="取消"
-              @confirm="removeNormalUser(record)"
-            >
-              <Button
+            <Button
                 type="text"
                 danger
                 :loading="normalUsers.deleting[record.id]"
                 title="删除账号"
                 :aria-label="`删除账号 ${record.username}`"
-              >
+              
+              @click="confirmDanger({
+                title: '`确认删除账号「${record.username}」？`',
+                description: '账号、QQ/TGID 绑定将一并删除。',
+                okText: '确认删除',
+                onOk: () => removeNormalUser(record),
+              })">
                 <Trash2 :size="16" />
               </Button>
-            </Popconfirm>
           </Space>
         </template>
       </Table.Column>

@@ -147,7 +147,7 @@ export default { name: "CommandsView" };
         :data-source="filteredRows"
         :loading="loading"
         :row-key="(row: any) => row.key"
-        :pagination="{ pageSize: 20, showSizeChanger: false }"
+        :pagination="{ pageSize: 10, showSizeChanger: true }"
       >
         <Table.Column title="触发词" :width="240">
           <template #default="{ record }">

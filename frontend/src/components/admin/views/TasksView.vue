@@ -1,16 +1,27 @@
 <script setup lang="ts">
+import { confirmDanger } from "../confirmDanger";
 import Button from "ant-design-vue/es/button";
 import Form from "ant-design-vue/es/form";
 import Input from "ant-design-vue/es/input";
 import Modal from "ant-design-vue/es/modal";
 import { computed } from "vue";
-import { Play, Plus, RefreshCw, Trash2 } from "lucide-vue-next";
-import Popconfirm from "ant-design-vue/es/popconfirm";
+import { Pencil, Play, Plus, RefreshCw, Trash2 } from "lucide-vue-next";
 import Select from "ant-design-vue/es/select";
 import Switch from "ant-design-vue/es/switch";
 import Table from "ant-design-vue/es/table";
 import { python } from "@codemirror/lang-python";
-import { timestamp } from "../../../utils";
+
+// 定时任务执行时间统一格式：2026-09-14 00:38:00
+function formatTaskTime(value?: number) {
+  if (!value) return "-";
+  const date = new Date(value * 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+    date.getDate(),
+  )} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(
+    date.getSeconds(),
+  )}`;
+}
 import { useAdminViewContext } from "../adminViewContext";
 
 const {
@@ -89,16 +100,16 @@ function fillTrigger(ruleText: string) {
     <Table
       row-key="task_id"
       :data-source="tasks.rows"
-      :pagination="{ total: tasks.total, pageSize: 20, onChange: loadTasks }"
+      :pagination="{ total: tasks.total, pageSize: 10, showSizeChanger: true, onChange: loadTasks }"
     >
-      <Table.Column title="#" data-index="id" :width="64" />
-      <Table.Column title="标题" data-index="title" :width="180" />
-      <Table.Column title="Cron" data-index="schedule" :width="180" />
+      <Table.Column title="#" data-index="id" :width="56" />
+      <Table.Column title="标题" data-index="title" :width="140" />
+      <Table.Column title="Cron" data-index="schedule" :width="130" />
       <Table.Column title="命令" data-index="command" ellipsis />
-      <Table.Column title="触发口令" data-index="trigger" :width="180" ellipsis>
+      <Table.Column title="触发口令" data-index="trigger" :width="120" ellipsis>
         <template #default="{ text }">{{ text || "—" }}</template>
       </Table.Column>
-      <Table.Column title="状态" data-index="enable" :width="80" align="center">
+      <Table.Column title="状态" data-index="enable" :width="70" align="center">
         <template #default="{ record }">
           <Switch
             :checked="record.enable"
@@ -108,27 +119,43 @@ function fillTrigger(ruleText: string) {
           />
         </template>
       </Table.Column>
-      <Table.Column title="创建时间" data-index="created_at" :width="180"
+      <Table.Column title="上次执行" data-index="last_run" :width="160"
         ><template #default="{ text }">{{
-          timestamp(text)
+          formatTaskTime(text)
         }}</template></Table.Column
       >
-      <Table.Column title="操作" :width="180"
-        ><template #default="{ record }"
-          ><Button
-            type="text"
-            :title="`运行 ${record.title}`"
-            :aria-label="`运行 ${record.title}`"
-            @click="runTask(record)"
-            ><Play :size="16" /></Button
-            ><Button type="text" @click="openTask(record); ensurePluginRules()">编辑</Button
-            ><Popconfirm title="确认删除？" @confirm="removeTask(record)"
+      <Table.Column title="下次执行" data-index="next_run" :width="160"
+        ><template #default="{ text }">{{
+          formatTaskTime(text)
+        }}</template></Table.Column
+      >
+      <Table.Column title="操作" :width="150"
+        ><template #default="{ record }">
+          <div class="row-actions">
+            <Button
+              type="text"
+              :title="`运行 ${record.title}`"
+              :aria-label="`运行 ${record.title}`"
+              @click="runTask(record)"
+              ><Play :size="16" /></Button
+            ><Button
+              type="text"
+              :title="`编辑 ${record.title}`"
+              :aria-label="`编辑 ${record.title}`"
+              @click="openTask(record); ensurePluginRules()"
+              ><Pencil :size="16" /></Button
             ><Button
               type="text"
               danger
               :title="`删除 ${record.title}`"
               :aria-label="`删除 ${record.title}`"
-              ><Trash2 :size="16" /></Button></Popconfirm></template
+              @click="confirmDanger({
+                title: '删除定时任务',
+                description: `确定删除「${record.title}」吗？删除后不可恢复。`,
+                onOk: () => removeTask(record),
+              })"
+              ><Trash2 :size="16" /></Button
+          ></div></template
       ></Table.Column>
     </Table>
   </section>
@@ -168,14 +195,18 @@ function fillTrigger(ruleText: string) {
           name="task-schedule"
           placeholder="0 * * * *"
       /></Form.Item>
-      <Form.Item label="触发命令" html-for="task-command"
+      <Form.Item
+        label="触发命令"
+        html-for="task-command"
+        help="可选。选择已安装脚本则把触发口令传给该脚本；不选脚本时，触发口令会当作消息走规则匹配（可命中系统指令与插件规则，如 time、版本），回复送达接收人，未命中规则则不发送"
         ><Select
           id="task-command"
           v-model:value="tasks.form.command"
           show-search
           :disabled="isPluginCronTask(tasks.form)"
           :options="tasks.scripts"
-          placeholder="node xxx.js 或 python xxx.py"
+          placeholder="选择已安装脚本，留空则直接发送触发口令"
+          allow-clear
       /></Form.Item>
       <Form.Item
         label="触发口令"
@@ -267,6 +298,15 @@ function fillTrigger(ruleText: string) {
 </template>
 
 <style scoped>
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+}
+.row-actions .ant-btn {
+  padding-inline: 6px;
+}
 .trigger-rule-hint {
   margin-top: 8px;
   border: 1px dashed var(--border-color, #d9d9d9);

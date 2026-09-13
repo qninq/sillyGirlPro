@@ -422,6 +422,7 @@ func AddCommand(cmds []*common.Function) {
 						if !pluginExecutionEnabled(cmds[j]) || !pluginCronTaskEnabled(cmds[j].UUID, plt) {
 							return
 						}
+						recordTaskRun(pluginCronTaskID(cmds[j].UUID, plt))
 						runPluginCronFunction(cmds[j], plt)
 					}))
 					if err == nil {

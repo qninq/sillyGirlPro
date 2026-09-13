@@ -10,6 +10,7 @@ import {
   Settings,
   Trash2,
 } from "lucide-vue-next";
+import { confirmDanger } from "../confirmDanger";
 import Button from "ant-design-vue/es/button";
 import Empty from "ant-design-vue/es/empty";
 import Form from "ant-design-vue/es/form";
@@ -17,7 +18,6 @@ import Input from "ant-design-vue/es/input";
 import InputNumber from "ant-design-vue/es/input-number";
 import Modal from "ant-design-vue/es/modal";
 import Pagination from "ant-design-vue/es/pagination";
-import Popconfirm from "ant-design-vue/es/popconfirm";
 import Radio from "ant-design-vue/es/radio";
 import Select from "ant-design-vue/es/select";
 import Space from "ant-design-vue/es/space";
@@ -330,20 +330,19 @@ const {
         </Table.Column>
         <Table.Column title="操作" :width="120">
           <template #default="{ record }">
-            <Popconfirm
-              title="确认删除这个插件源？"
-              @confirm="removePluginSource(record.address)"
-            >
-              <Button
+            <Button
                 type="text"
                 danger
                 :title="`删除插件源 ${record.address}`"
                 :aria-label="`删除插件源 ${record.address}`"
                 :loading="plugins.sourceRemoving[record.address]"
-              >
+              
+              @click="confirmDanger({
+                title: '确认删除这个插件源？',
+                onOk: () => removePluginSource(record.address),
+              })">
                 <Trash2 :size="16" />
               </Button>
-            </Popconfirm>
           </template>
         </Table.Column>
       </Table>

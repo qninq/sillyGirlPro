@@ -1,10 +1,10 @@
 <script setup lang="ts">
+import { confirmDanger } from "../confirmDanger";
 import Button from "ant-design-vue/es/button";
 import Form from "ant-design-vue/es/form";
 import Input from "ant-design-vue/es/input";
 import Modal from "ant-design-vue/es/modal";
 import { Plus, RefreshCw, Trash2 } from "lucide-vue-next";
-import Popconfirm from "ant-design-vue/es/popconfirm";
 import Select from "ant-design-vue/es/select";
 import Table from "ant-design-vue/es/table";
 import { timestamp } from "../../../utils";
@@ -44,13 +44,16 @@ const { loadMasters, masters, page, removeMaster, saveMaster } =
       >
       <Table.Column title="操作" :width="100"
         ><template #default="{ record }"
-          ><Popconfirm title="确认删除？" @confirm="removeMaster(record)"
-            ><Button
+          ><Button
               type="text"
               danger
               :title="`删除管理员 ${record.platform}:${record.number}`"
               :aria-label="`删除管理员 ${record.platform}:${record.number}`"
-              ><Trash2 :size="16" /></Button></Popconfirm></template
+              
+              @click="confirmDanger({
+                title: '确认删除？',
+                onOk: () => removeMaster(record),
+              })"><Trash2 :size="16" /></Button></template
       ></Table.Column>
     </Table>
   </section>

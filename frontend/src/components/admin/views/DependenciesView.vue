@@ -1,9 +1,9 @@
 <script setup lang="ts">
+import { confirmDanger } from "../confirmDanger";
 import Button from "ant-design-vue/es/button";
 import { Download, RefreshCw, Trash2 } from "lucide-vue-next";
 import Empty from "ant-design-vue/es/empty";
 import Input from "ant-design-vue/es/input";
-import Popconfirm from "ant-design-vue/es/popconfirm";
 import Segmented from "ant-design-vue/es/segmented";
 import Select from "ant-design-vue/es/select";
 import Switch from "ant-design-vue/es/switch";
@@ -103,7 +103,7 @@ const {
       "
       :loading="nodeDeps.loading"
       :data-source="nodeDeps.rows"
-      :pagination="{ pageSize: 20 }"
+      :pagination="{ pageSize: 10, showSizeChanger: true }"
     >
       <Table.Column title="#" :width="64">
         <template #default="{ index }">{{ index + 1 }}</template>
@@ -133,12 +133,7 @@ const {
             @click="installNodeDependencyRow(record)"
             >安装</Button
           >
-          <Popconfirm
-            v-else
-            title="确认卸载这个依赖？"
-            @confirm="removeNodeDependency(record)"
-          >
-            <Button
+          <Button
               type="text"
               danger
               :title="`卸载 ${record.name}`"
@@ -148,9 +143,12 @@ const {
                   `${nodeDeps.runtime}.${record.plugin}.${record.name}`
                 ]
               "
-              ><Trash2 :size="16"
+              
+              @click="confirmDanger({
+                title: '确认卸载这个依赖？',
+                onOk: () => removeNodeDependency(record),
+              })"><Trash2 :size="16"
             /></Button>
-          </Popconfirm>
         </template>
       </Table.Column>
     </Table>
