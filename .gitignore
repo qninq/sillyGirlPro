@@ -55,3 +55,9 @@ security-pentest/
 .tmp-*.log
 **/__pycache__/
 /skills.md
+
+# 运行日志
+run.log
+
+# GUI 测试截图产物
+gui-test-screenshots/

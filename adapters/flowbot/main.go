@@ -109,9 +109,9 @@ type bot struct {
 func init() {
 	for _, key := range []string{"token", "enable", "host", "port", "tls", "debug"} {
 		key := key
+		// 监听器在写入提交前执行，延后到提交完成再重启，确保 restart 读到新值。
 		storage.Watch(flowbot, key, func(old, new, key string) *storage.Final {
-			go restart()
-			return nil
+			return &storage.Final{EndFunc: func() { go restart() }}
 		})
 	}
 	go func() {
@@ -232,6 +232,17 @@ func (b *bot) readLoop(ctx context.Context, conn *websocket.Conn) {
 	pingTicker := time.NewTicker(pingInterval)
 	defer pingTicker.Stop()
 	done := make(chan struct{})
+	// 关闭开关（ctx 取消）时立即断开连接，否则 ReadMessage 要等读超时（最长 45 秒）
+	// 才返回，期间连接状态与消息处理都不会停止。
+	closed := make(chan struct{})
+	defer close(closed)
+	go func() {
+		select {
+		case <-ctx.Done():
+			_ = conn.Close()
+		case <-closed:
+		}
+	}()
 	go func() {
 		defer close(done)
 		for {
@@ -480,12 +491,7 @@ func backoff(attempts int) time.Duration {
 }
 
 func enabled() bool {
-	switch strings.ToLower(strings.TrimSpace(flowbot.GetString("enable"))) {
-	case "false", "0", "off", "no":
-		return false
-	default:
-		return true
-	}
+	return core.AdapterConfigEnabled(platform)
 }
 
 func (b *bot) readImageBytes(ctx context.Context, source string) ([]byte, error) {

@@ -56,7 +56,7 @@ var (
 
 func init() {
 	storage.Watch(pagermaid, "enable", func(old, new, key string) *storage.Final {
-		if !enabledValue(new) {
+		if !core.AdapterEnabledValue(new) {
 			closeConnections()
 			core.DestroyAdaptersByPlatform(platform)
 		}
@@ -418,15 +418,6 @@ func truthyValue(value string) bool {
 		return true
 	default:
 		return false
-	}
-}
-
-func enabledValue(value string) bool {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "false", "0", "off", "no":
-		return false
-	default:
-		return true
 	}
 }
 

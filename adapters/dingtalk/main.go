@@ -57,9 +57,9 @@ type bot struct {
 func init() {
 	for _, key := range []string{"enable", "client_id", "client_secret", "debug"} {
 		key := key
+		// 监听器在写入提交前执行，延后到提交完成再重启，确保 restart 读到新值。
 		storage.Watch(settings, key, func(old, new, key string) *storage.Final {
-			go restart()
-			return nil
+			return &storage.Final{EndFunc: func() { go restart() }}
 		})
 	}
 	go func() {

@@ -1,9 +1,9 @@
 # SillyGirl
 
-[![Version](https://img.shields.io/badge/version-v1.2.8-1677ff)](VERSION)
+[![Version](https://img.shields.io/badge/version-v1.2.9-1677ff)](VERSION)
 [![Go](https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go)](go.mod)
 
-SillyGirl（傻妞）是一个多平台聊天机器人框架：一套核心接入微信（ClawBot）、QQ 官方机器人、QQ 频道、Telegram、钉钉、Web 等平台，支持 JavaScript / Python / gRPC 插件、跨平台消息转发、回复规则与定时任务，自带 Web 管理后台。
+SillyGirl（傻妞）是一个多平台聊天机器人框架：一套核心接入微信（ClawBot）、QQ 官方机器人、QQ 频道、Telegram、钉钉、Web 等平台，支持 JavaScript / Python / gRPC 插件、跨平台消息转发、回复规则与定时任务，自带 Web 管理后台与用户服务入口（QQ 邮箱注册、QQ 号即账号）。
 
 ## 快速开始
 
@@ -36,7 +36,7 @@ docker run -d --name sillygirl --restart unless-stopped \
 
 ### 管理后台
 
-启动后访问 `http://localhost:8080/admin`，首次访问需设置管理员账号密码，之后在后台完成适配器接入、插件安装与规则配置。
+启动后访问 `http://localhost:8080/admin`，首次访问需设置管理员账号密码。内置适配器默认关闭，在「BOT 对接管理」页逐一开启后才接入平台；其余插件安装、规则配置与用户服务入口（`/`）均在后台完成配置。
 
 ## 文档导航
 

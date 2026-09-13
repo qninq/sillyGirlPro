@@ -1,4 +1,4 @@
-export const SILLYGIRL_VERSION = '1.2.8';
+export const SILLYGIRL_VERSION = '1.2.9';
 
 declare global {
   interface Window {

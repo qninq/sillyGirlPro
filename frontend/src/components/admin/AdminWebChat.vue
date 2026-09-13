@@ -24,8 +24,19 @@ const { sendWebChat, toggleWebChat, user, webChat, webChatMessagesEl } =
           <div>
             <strong>Web Bot</strong>
             <span class="web-chat-status">
-              <i :class="{ online: webChat.polling }"></i>
-              {{ webChat.polling ? "在线" : "连接中" }}
+              <i
+                :class="{
+                  online: !webChat.unavailable && webChat.polling,
+                  offline: webChat.unavailable,
+                }"
+              ></i>
+              {{
+                webChat.unavailable
+                  ? "离线"
+                  : webChat.polling
+                    ? "在线"
+                    : "连接中"
+              }}
             </span>
           </div>
         </div>

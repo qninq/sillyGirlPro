@@ -15,8 +15,9 @@
 | `telegram` | Telegram Bot API 长轮询 | `getUpdates` | `sendMessage` | `token`、`api_base` |
 | `dingtalk` | 钉钉 Stream | Stream callback | `sessionWebhook` | `client_id`、`client_secret` |
 | `qqguild` | BotGo Webhook/WebSocket | `/qqguild/webhook` 或 Gateway | OpenAPI | `app_id`、`app_secret`、`mode` |
-| `web` | 浏览器长轮询 | `/api/web-chat/messages` | 内置消息队列 | `web_chat_public` |
+| `web` | 浏览器长轮询 | `/api/web-chat/messages` | 内置消息队列 | `enable`、`web_chat_public` |
 | `pagermaid` | WebSocket 桥接 | `/pagermaid/receive` | WebSocket action | `token` |
+| `flowbot` | FlowBot 微信 WebSocket | `/api/v1/ws/messages` | HTTP 发送接口 | `token`、`host`、`port` |
 
 ## 通用配置
 
@@ -24,7 +25,7 @@
 
 | 键 | 含义 |
 |---|---|
-| `enable` | 设为 `false` 时停用适配器；未配置时按各适配器默认值处理 |
+| `enable` | 启用开关。内置适配器（ClawBot、QQ、Telegram、钉钉、QQ 官方、Web Bot、Pagermaid、FlowBot）未配置时**默认关闭**，需在 BOT 管理页开启；插件注册的自定义平台未配置时默认启用 |
 | `debug` | 输出该适配器的收发调试日志 |
 | `token` / `client_secret` / `app_secret` | 平台认证凭据，后台以密码输入框维护 |
 | `api_base` | 可选兼容 API 或反向代理基址 |
@@ -135,12 +136,13 @@ Webhook 模式要求可访问的 HTTPS 地址；WebSocket 模式由 SillyGirl �
 
 ## Web Bot
 
-Web Bot 随主程序注册为 `web/default`，后台右下角可直接打开聊天窗口。
+Web Bot 是内置适配器，注册为 `web/default`。**默认关闭**，在后台 BOT 管理页开启后即可使用，后台右下角可直接打开聊天窗口；关闭时聊天接口返回 403，后台管理不受影响。
 
 主动推送（转发、`pushAdmin` 等）目标为 **Web 会话 rid**（浏览器登录会话 ID，私聊类型按 `user_id` 投递，仅带 `chat_id` 时回退到 `chat_id`）；会话需保持在线，长时间无访问的会话会被清理，队列中的消息随之丢弃。
 
 | 配置 | 说明 |
 |---|---|
+| `web.enable` | 启用开关，未配置时默认关闭 |
 | `sillyGirl.web_chat_public=false` | 仅已登录管理员可发送消息，推荐默认值 |
 | `sillyGirl.web_chat_public=true` | 允许匿名调用聊天接口 |
 

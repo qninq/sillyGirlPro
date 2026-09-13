@@ -54,6 +54,12 @@ func TestWebChatRequestRejectsEmptyPOST(t *testing.T) {
 
 func TestAnonymousPollRejectedWhenPublicChatDisabled(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	webBucket := core.MakeBucket("web")
+	oldEnable := webBucket.GetString("enable")
+	if _, _, err := core.SetBucketKeyValue(webBucket, "enable", true); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _, _, _ = webBucket.Set("enable", oldEnable) }()
 	settings := core.MakeBucket("sillyGirl")
 	old := settings.GetString("web_chat_public")
 	if _, _, err := settings.Set("web_chat_public", false); err != nil {
@@ -71,6 +77,25 @@ func TestAnonymousPollRejectedWhenPublicChatDisabled(t *testing.T) {
 	}
 	if elapsed := time.Since(started); elapsed >= time.Second {
 		t.Fatalf("unauthorized poll was held open for %s", elapsed)
+	}
+}
+
+func TestReceiveWebChatRejectedWhenDisabled(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	webBucket := core.MakeBucket("web")
+	oldEnable := webBucket.GetString("enable")
+	// 走真实编码路径（写入 b:false），回归界面关闭适配器不生效的问题。
+	if _, _, err := core.SetBucketKeyValue(webBucket, "enable", false); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _, _, _ = webBucket.Set("enable", oldEnable) }()
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/web-chat/messages?rid=disabled-probe_123", nil)
+	receiveWebChat(ctx)
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("status = %d; body=%s", recorder.Code, recorder.Body.String())
 	}
 }
 

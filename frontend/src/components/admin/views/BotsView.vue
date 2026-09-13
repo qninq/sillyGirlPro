@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { onMounted, onUnmounted, ref } from "vue";
 import Alert from "ant-design-vue/es/alert";
 import {
   Antenna,
@@ -26,10 +26,12 @@ import Tag from "ant-design-vue/es/tag";
 import Typography from "ant-design-vue/es/typography";
 import message from "ant-design-vue/es/message";
 import QQguildOnboardModal from "../QQguildOnboardModal.vue";
+import BotEventsPopover from "../BotEventsPopover.vue";
 import { useAdminViewContext } from "../adminViewContext";
 
 const {
   botEnabled,
+  botEvents,
   botSettings,
   botSettingsModal,
   botStatusRows,
@@ -46,12 +48,17 @@ const {
   saveCurrentBotSettings,
   setBotEnabled,
   settings,
+  startBotStatusPolling,
   startClawbotLogin,
   submitClawbotVerifyCode,
+  stopBotStatusPolling,
   toggleWebChat,
   webChat,
   webChatEndpointURL,
 } = useAdminViewContext();
+
+onMounted(startBotStatusPolling);
+onUnmounted(stopBotStatusPolling);
 
 const qqguildOnboardOpen = ref(false);
 
@@ -120,6 +127,7 @@ function onQQguildOnboardConfirmed(payload: {
                   <template #icon><Play :size="18" /></template>
                 </Button>
               </template>
+              <BotEventsPopover :label="record.label" :platform="record.platform" />
               <Button
                 class="bot-card-settings"
                 type="text"
@@ -505,11 +513,14 @@ function onQQguildOnboardConfirmed(payload: {
         class="bot-settings-modal-form"
       >
         <Form.Item
-          label="运行状态"
-          html-for="bot-web-status"
-          extra="Web Bot 是内置适配器，随 SillyGirl 自动启动。"
+          label="启用 Web Bot"
+          html-for="bot-web-enable"
+          extra="关闭后网页聊天接口立即停止服务，后台管理不受影响；重新开启即时生效。"
         >
-          <Switch id="bot-web-status" :checked="true" disabled />
+          <Switch
+            id="bot-web-enable"
+            v-model:checked="botSettings.form.web_enable"
+          />
         </Form.Item>
         <Form.Item
           label="允许匿名聊天"

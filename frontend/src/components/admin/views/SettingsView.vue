@@ -125,6 +125,56 @@ const {
           placeholder="请输入要展示给普通用户的公告，支持纯文本 / Markdown / HTML"
         />
       </Form.Item>
+      <Typography.Title :level="5">邮箱验证</Typography.Title>
+      <Form.Item
+        label="验证邮箱服务器地址"
+        html-for="settings-smtp-host"
+        extra="建议QQ邮箱：smtp.qq.com"
+      >
+        <Input
+          id="settings-smtp-host"
+          name="settings-smtp-host"
+          v-model:value="settings.form.smtp_host"
+          placeholder="smtp.qq.com"
+        />
+      </Form.Item>
+      <Form.Item
+        label="验证邮箱服务器端口"
+        html-for="settings-smtp-port"
+        extra="建议QQ邮箱：25"
+      >
+        <Input
+          id="settings-smtp-port"
+          name="settings-smtp-port"
+          v-model:value="settings.form.smtp_port"
+          placeholder="25"
+        />
+      </Form.Item>
+      <Form.Item
+        label="验证邮箱服务器授权码"
+        html-for="settings-smtp-password"
+        extra="QQ邮箱见邮箱设置"
+      >
+        <Input.Password
+          id="settings-smtp-password"
+          name="settings-smtp-password"
+          autocomplete="new-password"
+          v-model:value="settings.form.smtp_password"
+          placeholder="留空表示不修改"
+        />
+      </Form.Item>
+      <Form.Item
+        label="邮箱主体"
+        html-for="settings-smtp-sender"
+        extra="如：2378033171@qq.com"
+      >
+        <Input
+          id="settings-smtp-sender"
+          name="settings-smtp-sender"
+          v-model:value="settings.form.smtp_sender"
+          placeholder="2378033171@qq.com"
+        />
+      </Form.Item>
       <Form.Item label="自动撤回正则" html-for="settings-recall"
         ><Input.TextArea
           id="settings-recall"

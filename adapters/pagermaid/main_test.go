@@ -1,6 +1,10 @@
 package pagermaid
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/qninq/sillyGirlPro/core"
+)
 
 func TestValidAuthorization(t *testing.T) {
 	if !validAuthorization("", "", "", "127.0.0.1:12345") {
@@ -33,8 +37,14 @@ func TestIsPrivateChat(t *testing.T) {
 }
 
 func TestBooleanParsers(t *testing.T) {
-	if !enabledValue("") {
+	if !core.AdapterEnabledValue("") {
 		t.Fatal("enable empty value should default to true")
+	}
+	if !core.AdapterEnabledValue("b:true") {
+		t.Fatal("encoded b:true should be parsed as true")
+	}
+	if core.AdapterEnabledValue("b:false") {
+		t.Fatal("encoded b:false should be parsed as false")
 	}
 	if truthyValue("") {
 		t.Fatal("debug empty value should default to false")

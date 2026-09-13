@@ -89,17 +89,15 @@ const (
 var cqImagePattern = regexp.MustCompile(`\[CQ:image,([^\]]+)\]`)
 
 func init() {
+	// 监听器在写入提交前执行，延后到提交完成再重启，确保 restart 读到新值。
 	storage.Watch(telegram, "token", func(old, new, key string) *storage.Final {
-		go restart()
-		return nil
+		return &storage.Final{EndFunc: func() { go restart() }}
 	})
 	storage.Watch(telegram, "enable", func(old, new, key string) *storage.Final {
-		go restart()
-		return nil
+		return &storage.Final{EndFunc: func() { go restart() }}
 	})
 	storage.Watch(telegram, "api_base", func(old, new, key string) *storage.Final {
-		go restart()
-		return nil
+		return &storage.Final{EndFunc: func() { go restart() }}
 	})
 	go func() {
 		time.Sleep(2 * time.Second)
@@ -430,8 +428,7 @@ func getToken() string {
 }
 
 func enabled() bool {
-	value := strings.TrimSpace(strings.ToLower(telegram.GetString("enable")))
-	return value != "false" && value != "0" && value != "no" && value != "off"
+	return core.AdapterConfigEnabled("telegram")
 }
 
 func firstNonEmpty(values ...string) string {

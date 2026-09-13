@@ -11,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/qninq/sillyGirlPro/core"
+	"github.com/qninq/sillyGirlPro/core/storage"
 )
 
 type WebMessage struct {
@@ -97,9 +98,13 @@ func (wu *WebUser) Enqueue(message WebMessage) {
 
 var webAdmins sync.Map
 
+// platform 是 Web Bot 的平台名；适配器生命周期由 web.enable 开关驱动，
+// 关闭时注销 Factory（BOT 页显示未连接、聊天接口返回 403），重新开启时再注册。
+const platform = "web"
+
 var (
-	adapter     *core.Factory
-	adapterOnce sync.Once
+	adapter   *core.Factory
+	adapterMu sync.Mutex
 )
 
 var GetUserNumber = func() int {
@@ -111,51 +116,81 @@ var GetUserNumber = func() int {
 	return i
 }
 
-func initWebBot() {
-	adapterOnce.Do(func() {
-		adapter = &core.Factory{}
-		adapter.Init("web", "default", nil)
-		adapter.SetIsAdmin(func(s string) bool {
-			isAdmin, ok := webAdmins.Load(s)
-			if ok {
-				return isAdmin.(bool)
-			}
-			return false
-		})
-		adapter.SetReplyHandler(func(msg map[string]interface{}) string {
-			// Web 会话没有群聊概念：优先取 user_id，主动推送只带 chat_id
-			// 时回退到 chat_id 作为会话 ID。
-			userID := ""
-			for _, key := range []interface{}{msg[core.USER_ID], msg[core.CHAT_ID]} {
-				if value := strings.TrimSpace(fmt.Sprint(key)); value != "" && value != "<nil>" {
-					userID = value
-					break
-				}
-			}
-			if userID == "" {
-				return ""
-			}
-			content := ""
-			if contentValue, ok := msg[core.CONETNT]; ok {
-				content = fmt.Sprint(contentValue)
-			}
-			message := WebMessage{
-				UserID:  userID,
-				Images:  []string{},
-				Type:    "chat",
-				Content: content,
-			}
-			sendWebMessage(&message)
-			return ""
-		})
+// initWebBot 确保 Web Bot 适配器已注册；关闭后再开启时重新注册。
+func initWebBot() *core.Factory {
+	adapterMu.Lock()
+	defer adapterMu.Unlock()
+	if adapter != nil {
+		return adapter
+	}
+	created := &core.Factory{}
+	created.Init(platform, "default", nil)
+	created.SetIsAdmin(func(s string) bool {
+		isAdmin, ok := webAdmins.Load(s)
+		if ok {
+			return isAdmin.(bool)
+		}
+		return false
 	})
+	created.SetReplyHandler(func(msg map[string]interface{}) string {
+		// Web 会话没有群聊概念：优先取 user_id，主动推送只带 chat_id
+		// 时回退到 chat_id 作为会话 ID。
+		userID := ""
+		for _, key := range []interface{}{msg[core.USER_ID], msg[core.CHAT_ID]} {
+			if value := strings.TrimSpace(fmt.Sprint(key)); value != "" && value != "<nil>" {
+				userID = value
+				break
+			}
+		}
+		if userID == "" {
+			return ""
+		}
+		content := ""
+		if contentValue, ok := msg[core.CONETNT]; ok {
+			content = fmt.Sprint(contentValue)
+		}
+		message := WebMessage{
+			UserID:  userID,
+			Images:  []string{},
+			Type:    "chat",
+			Content: content,
+		}
+		sendWebMessage(&message)
+		return ""
+	})
+	adapter = created
+	return adapter
+}
+
+// destroyWebBot 注销 Web Bot 适配器。
+func destroyWebBot() {
+	adapterMu.Lock()
+	defer adapterMu.Unlock()
+	if adapter == nil {
+		return
+	}
+	adapter.Destroy()
+	adapter = nil
+}
+
+func syncWebBot() {
+	if core.AdapterConfigEnabled(platform) {
+		initWebBot()
+		return
+	}
+	destroyWebBot()
+	core.Logs.Info("Web Bot未启动：web.enable未开启")
 }
 
 func init() {
 	core.RegistFuncs["Broadcast2WebUser"] = Broadcast2WebUser
+	// 监听器在写入提交前执行，延后到提交完成再同步，确保读到新值。
+	storage.Watch(core.MakeBucket(platform), "enable", func(old, new, key string) *storage.Final {
+		return &storage.Final{EndFunc: func() { go syncWebBot() }}
+	})
 	go func() {
 		time.Sleep(time.Second)
-		initWebBot()
+		syncWebBot()
 	}()
 	go cleanupWebUsers()
 	core.GinApi(core.GET, "/api/web-chat/messages", receiveWebChat)
@@ -163,6 +198,10 @@ func init() {
 }
 
 func receiveWebChat(ctx *gin.Context) {
+	if !core.AdapterConfigEnabled(platform) {
+		core.ApiError(ctx, http.StatusForbidden, "Web Bot 已关闭，请在后台 BOT 页开启后使用")
+		return
+	}
 	initWebBot()
 	rid, content, legacySend, err := webChatRequest(ctx)
 	if err != nil {
@@ -187,10 +226,16 @@ func receiveWebChat(ctx *gin.Context) {
 			core.ApiError(ctx, http.StatusRequestEntityTooLarge, "web_chat 消息不能超过 32KB")
 			return
 		}
-		adapter.Receive(map[string]interface{}{
-			core.USER_ID: rid,
-			core.CONETNT: content,
-		})
+		// 持锁调用，避免与开关关闭时的 Destroy 并发。
+		adapterMu.Lock()
+		webBot := adapter
+		if webBot != nil {
+			webBot.Receive(map[string]interface{}{
+				core.USER_ID: rid,
+				core.CONETNT: content,
+			})
+		}
+		adapterMu.Unlock()
 		if !legacySend {
 			core.ApiAccepted(ctx, "", []WebMessage{})
 			return

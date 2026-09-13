@@ -315,28 +315,17 @@ func overviewVersionInfo() map[string]interface{} {
 }
 
 func overviewAdapterStatuses() []map[string]interface{} {
-	platforms := []struct {
-		Platform string
-		Label    string
-	}{
-		{Platform: "clawbot", Label: "微信 ClawBot"},
-		{Platform: "dingtalk", Label: "钉钉机器人"},
-		{Platform: "flowbot", Label: "FlowBot 微信"},
-		{Platform: "pagermaid", Label: "Pagermaid"},
-		{Platform: "qq", Label: "QQ"},
-		{Platform: "qqguild", Label: "QQ 官方频道机器人"},
-		{Platform: "web", Label: "Web Bot"},
-		{Platform: "telegram", Label: "Telegram Bot"},
-	}
+	platformOrder := []string{"clawbot", "dingtalk", "flowbot", "pagermaid", "qq", "qqguild", "web", "telegram"}
 	rows := []map[string]interface{}{}
-	for _, item := range platforms {
-		botsID := GetAdapterBotsID(item.Platform)
+	for _, platform := range platformOrder {
+		enabled := AdapterConfigEnabled(platform)
+		botsID := GetAdapterBotsID(platform)
 		rows = append(rows, map[string]interface{}{
-			"platform":   item.Platform,
-			"label":      item.Label,
-			"online":     len(botsID) > 0,
-			"enabled":    AdapterConfigEnabled(item.Platform),
-			"manageable": AdapterConfigManageable(item.Platform),
+			"platform":   platform,
+			"label":      adapterPlatformLabel(platform),
+			"online":     enabled && len(botsID) > 0,
+			"enabled":    enabled,
+			"manageable": AdapterConfigManageable(platform),
 			"bots_id":    botsID,
 			"count":      len(botsID),
 		})

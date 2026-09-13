@@ -245,19 +245,21 @@ export function useStorageAdmin() {
     return storageEditorRuntime;
   }
 
-  function storageEditorExtensions(runtime: StorageEditorRuntime): Extension[] {
-    return [
-      runtime.basicSetup,
-      storageEditorLanguage!.of(
-        storageState.editorMode === "json" ? runtime.javascript() : [],
-      ),
-      runtime.EditorView.updateListener.of((update) => {
-        if (update.docChanged) {
-          storageState.entryForm.value = update.state.doc.toString();
-        }
-      }),
-    ];
-  }
+function storageEditorExtensions(runtime: StorageEditorRuntime): Extension[] {
+  return [
+    runtime.basicSetup,
+    // 长文本值自动换行，避免单行横向滚动难以查看。
+    runtime.EditorView.lineWrapping,
+    storageEditorLanguage!.of(
+      storageState.editorMode === "json" ? runtime.javascript() : [],
+    ),
+    runtime.EditorView.updateListener.of((update) => {
+      if (update.docChanged) {
+        storageState.entryForm.value = update.state.doc.toString();
+      }
+    }),
+  ];
+}
 
   async function initStorageEditor() {
     const host = storageEditorHost.value;
@@ -306,17 +308,18 @@ export function useStorageAdmin() {
   function formatStorageJson() {
     if (storageState.editorMode !== "json") return;
     const raw = storageState.entryForm.value ?? "";
+    const payload = typedJsonPayloadOf(raw);
     let parsed: unknown;
     try {
-      parsed = JSON.parse(raw.length ? raw : "null");
+      parsed = JSON.parse(payload ?? (raw.length ? raw : "null"));
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       message.error(`JSON 格式错误：${reason.slice(0, 160)}`);
       return;
     }
     const pretty = JSON.stringify(parsed, null, 2);
-    storageState.entryForm.value = pretty;
-    syncStorageEditorDoc(pretty);
+    storageState.entryForm.value = payload === null ? pretty : "o:" + pretty;
+    syncStorageEditorDoc(storageState.entryForm.value);
     setStorageEditorMode("json");
   }
 
@@ -332,11 +335,23 @@ export function useStorageAdmin() {
     }
   }
 
+  // 后端桶值类型标签（core/bucket.go encodeBucketValue）：对象值以 "o:" + JSON 存储。
+  // JSON 校验与格式化只针对标签后的载荷；只认对象/数组，避免误伤恰好以 o: 开头的普通字符串。
+  // 返回 null 表示内容整体才是 JSON（或不是 JSON）。
+  function typedJsonPayloadOf(value: string): string | null {
+    const raw = (value || "").trim();
+    if (!raw.startsWith("o:")) return null;
+    const payload = raw.slice(2).trim();
+    if (!payload.startsWith("{") && !payload.startsWith("[")) return null;
+    return payload;
+  }
+
   function detectStorageEditorMode(value: string): "text" | "json" {
     const text = (value || "").trim();
     if (!text) return "text";
+    const payload = typedJsonPayloadOf(text) ?? text;
     try {
-      JSON.parse(text);
+      JSON.parse(payload);
       return "json";
     } catch {
       return "text";
@@ -361,8 +376,11 @@ export function useStorageAdmin() {
     const mode = detectStorageEditorMode(rawValue);
     let value = rawValue;
     if (mode === "json") {
+      const payload = typedJsonPayloadOf(rawValue);
       try {
-        value = JSON.stringify(JSON.parse(rawValue.length ? rawValue : "null"), null, 2);
+        const pretty = JSON.stringify(JSON.parse(payload ?? rawValue), null, 2);
+        // o: 类型标签保留在编辑内容前，保存时原样带回，存储值结构不变。
+        value = payload === null ? pretty : "o:" + pretty;
       } catch {
         value = rawValue;
       }
@@ -392,16 +410,18 @@ export function useStorageAdmin() {
     }
     let value = storageState.entryForm.value ?? "";
     if (storageState.editorMode === "json") {
+      const payload = typedJsonPayloadOf(value);
       let parsed: unknown;
       try {
-        parsed = JSON.parse(value.length ? value : "null");
+        parsed = JSON.parse(payload ?? (value.length ? value : "null"));
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
         message.error(`VALUE 不是有效的 JSON：${reason.slice(0, 160)}`);
         return;
       }
-      // 展示用格式化排版，保存统一压缩为单行，保持存储紧凑。
-      value = JSON.stringify(parsed);
+      // 展示用格式化排版，保存统一压缩为单行，保持存储紧凑；o: 类型标签原样保留。
+      const compact = JSON.stringify(parsed);
+      value = payload === null ? compact : "o:" + compact;
     }
     storageState.savingEntry = true;
     try {

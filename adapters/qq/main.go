@@ -191,7 +191,8 @@ func validOneBotOrigin(r *http.Request) bool {
 
 func init() {
 	storage.Watch(qq, "enable", func(old, new, key string) *storage.Final {
-		if strings.EqualFold(strings.TrimSpace(new), "false") || strings.TrimSpace(new) == "0" {
+		// 开关值经 encodeBucketValue 编码（b:false 等），须用核心解码判断。
+		if !core.AdapterEnabledValue(new) {
 			closeQQConnections()
 			core.DestroyAdaptersByPlatform("qq")
 		}

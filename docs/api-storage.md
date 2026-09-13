@@ -142,6 +142,8 @@ Base URL: `http://host:port/api`
 
 `GET /api/admin/logs/stream` 为 SSE 实时日志流，鉴权支持 `token` 查询参数回退。
 
+`GET /api/admin/bots` 返回 `settings`（各平台配置值）、`statuses`（平台启停/连接状态/实例列表）与 `events`（各适配器最近事件环形缓冲，含实例注册/销毁与开关变更，每平台保留最近 50 条，内存态重启即清空）。
+
 普通用户账号接口（Admin 用户管理）：
 
 - `GET /api/admin/users` 返回全部普通用户行（含 `email`、`bindings`、`disabled`、`storage_key`），后台页面在此基础上做账号 / 昵称 / 邮箱 / QQ / TGID 的前端过滤搜索。
@@ -151,7 +153,9 @@ Base URL: `http://host:port/api`
 
 用户服务（User 资源）说明：
 
-- `POST /api/user/accounts` 为自助注册入口，请求体 `{ "email": "...", "password": "...", "nickname": "..." }`。仅接受 QQ 数字邮箱（规则 `^(\d{5,12})@qq\.com$`），邮箱前缀 QQ 号即登录账号（5-12 位数字），昵称选填（默认使用邮箱）；注册成功自动写入 QQ 绑定，返回 JWT 与用户信息。
+- `POST /api/user/accounts` 为自助注册入口，请求体 `{ "email": "...", "password": "...", "nickname": "...", "code": "..." }`。仅接受 QQ 数字邮箱（规则 `^(\d{5,12})@qq\.com$`），邮箱前缀 QQ 号即登录账号（5-12 位数字），昵称选填（默认使用邮箱）；注册成功自动写入 QQ 绑定，返回 JWT 与用户信息。管理员在基础设置「邮箱验证」配置齐全（服务器地址、端口、授权码、邮箱主体）时，`code` 为必填的邮箱验证码；未配置时保持无验证注册。
+- `POST /api/user/email-codes` 请求体 `{ "email": "QQ号@qq.com", "purpose": "register" | "password-reset" }`（`purpose` 缺省为 `register`），向该邮箱发送 6 位验证码（5 分钟有效、验证成功即作废、连续错误 5 次作废）；验证码按用途隔离，注册用途的验证码不能用于重置密码。同 IP 60 秒内只能发送一封（跨用途共享）；`register` 用途要求邮箱未注册，`password-reset` 用途要求邮箱已注册，未配置 SMTP 或格式非法时返回相应错误。
+- `POST /api/user/password/resets` 忘记密码：请求体 `{ "email": "QQ号@qq.com", "code": "6 位验证码", "password": "新密码" }`，`code` 为 `password-reset` 用途的邮箱验证码（需先在基础设置配置邮箱验证服务）；校验通过后重置密码并立即作废验证码。
 - `POST /api/user/sessions` 使用账号（自助注册用户即 QQ 号）与密码登录，连续失败有频率限制。
 - `GET /api/user/profile` 返回当前用户（`user.email` 含注册邮箱）、绑定与用户公告。
 - `POST /api/user/bindings/:platform` 与对应 deletions 仅支持 `qq`、`telegram` 两个平台。
@@ -185,6 +189,8 @@ Base URL: `http://host:port/api`
 
 | Method | Resource |
 |---|---|
+| `POST` | `/api/user/email-codes` |
+| `POST` | `/api/user/password/resets` |
 | `POST` | `/api/user/accounts` |
 | `POST` | `/api/user/sessions` |
 | `POST` | `/api/user/sessions/current/deletions` |

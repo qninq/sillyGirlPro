@@ -258,6 +258,7 @@ func (f *Factory) Init(botplt, botid string, params map[string]interface{}) {
 		console.Warn("%s机器人%s因冲突销毁！", botplt, botid)
 	}
 	Bots[[2]string{botplt, botid}] = f
+	recordAdapterEvent(botplt, "init", "实例 %s 已注册", botid)
 	f.lm = make(chan bool, 10)
 	f.nm = 0
 	if botid != "" {
@@ -342,6 +343,7 @@ func (f *Factory) Destroy() {
 	if current, ok := Bots[key]; ok && current == f {
 		delete(Bots, key)
 	}
+	recordAdapterEvent(f.botplt, "destroy", "实例 %s 已销毁", f.botid)
 	botid := ""
 	if f.botid != "" {
 		botid = fmt.Sprintf("(%s)", f.botid)

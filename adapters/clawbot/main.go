@@ -218,9 +218,9 @@ func (b *bot) lookupContext(toUserID string) (clawContext, bool) {
 func init() {
 	for _, key := range []string{"token", "enable", "api_base", "cdn_base_url", "debug", "channel_version"} {
 		key := key
+		// 监听器在写入提交前执行，延后到提交完成再重启，确保 restart 读到新值。
 		storage.Watch(clawbot, key, func(old, new, key string) *storage.Final {
-			go restart()
-			return nil
+			return &storage.Final{EndFunc: func() { go restart() }}
 		})
 	}
 	go func() {
@@ -673,12 +673,7 @@ func (a *apiClient) baseInfo() baseInfo {
 }
 
 func enabled() bool {
-	switch strings.ToLower(strings.TrimSpace(clawbot.GetString("enable"))) {
-	case "false", "0", "off", "no":
-		return false
-	default:
-		return true
-	}
+	return core.AdapterConfigEnabled(platform)
 }
 
 func buildClientVersion(version string) int {

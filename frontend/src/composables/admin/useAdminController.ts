@@ -135,6 +135,7 @@ export function useAdminController() {
     input: "",
     sending: false,
     polling: false,
+    unavailable: false,
     error: "",
     unread: 0,
     messages: [] as WebChatEntry[],
@@ -201,13 +202,18 @@ export function useAdminController() {
       );
       if (generation !== webChatPollGeneration) return;
       webChat.error = "";
+      webChat.unavailable = false;
       appendWebChatMessages(webChatRows(res));
     } catch (error) {
       if (generation !== webChatPollGeneration) return;
       if (error instanceof DOMException && error.name === "AbortError") return;
+      // 403 表示 Web Bot 已在后台关闭；此时退避到慢轮询，重新开启后自动恢复。
+      webChat.unavailable = error instanceof ApiError && error.status === 403;
       webChat.error =
         error instanceof Error ? error.message : "Web Bot 连接失败";
-      await new Promise((resolve) => window.setTimeout(resolve, 1200));
+      await new Promise((resolve) =>
+        window.setTimeout(resolve, webChat.unavailable ? 8000 : 1200),
+      );
     } finally {
       if (webChatPollController === controller) webChatPollController = null;
       if (generation === webChatPollGeneration) webChat.polling = false;
@@ -223,15 +229,25 @@ export function useAdminController() {
     webChat.open = !webChat.open;
     webChat.unread = 0;
     webChat.error = "";
+    webChat.unavailable = false;
     webChatPollGeneration += 1;
     if (webChat.open) {
       if (webChat.messages.length === 0) {
         appendWebChatMessages([
-          { t: "notice", c: "Web Bot 已连接，可以直接发送命令。" },
+          { t: "notice", c: "Web Bot 对话窗口已打开。" },
         ]);
       }
       void pollWebChat(webChatPollGeneration);
     }
+  }
+
+  // 立即重新探测 Web Bot 可用性（后台开关变化后调用，小组件状态即时跟上）。
+  function restartWebChatPoll() {
+    if (!webChat.open || !user.value) return;
+    webChatPollGeneration += 1;
+    webChatPollController?.abort();
+    webChatPollController = null;
+    void pollWebChat(webChatPollGeneration);
   }
 
   async function sendWebChat() {
@@ -246,7 +262,9 @@ export function useAdminController() {
         rid: webChatRid,
         ctt: content,
       });
+      webChat.unavailable = false;
     } catch (error) {
+      webChat.unavailable = error instanceof ApiError && error.status === 403;
       webChat.error = error instanceof Error ? error.message : "消息发送失败";
     } finally {
       webChat.sending = false;
@@ -1881,6 +1899,7 @@ export function useAdminController() {
     pagermaid_debug: boolean;
     flowbot_enable: boolean; flowbot_token: string; flowbot_host: string;
     flowbot_port: string; flowbot_tls: boolean; flowbot_debug: boolean;
+    web_enable: boolean;
     web_chat_public: boolean;
   };
 
@@ -1917,22 +1936,23 @@ export function useAdminController() {
     loading: false,
     saving: false,
     form: {
-      clawbot_enable: true,
+      // 内置适配器未配置过启用开关时后端默认关闭，表单默认值保持一致。
+      clawbot_enable: false,
       clawbot_token: "",
       clawbot_api_base: "https://ilinkai.weixin.qq.com",
       clawbot_debug: false,
-      qq_enable: true,
+      qq_enable: false,
       qq_token: "",
       qq_debug: false,
       telegram_token: "",
-      telegram_enable: true,
+      telegram_enable: false,
       telegram_api_base: "https://api.telegram.org",
       telegram_debug: false,
-      dingtalk_enable: true,
+      dingtalk_enable: false,
       dingtalk_client_id: "",
       dingtalk_client_secret: "",
       dingtalk_debug: false,
-      qqguild_enable: true,
+      qqguild_enable: false,
       qqguild_mode: "webhook",
       qqguild_app_id: "",
       qqguild_app_secret: "",
@@ -1944,11 +1964,12 @@ export function useAdminController() {
       qqguild_group_join_auto_approve: "off",
       qqguild_join_strategy_groups: "",
       qqguild_join_strategy_whitelist: "",
-      pagermaid_enable: true,
+      pagermaid_enable: false,
       pagermaid_token: "",
       pagermaid_debug: false,
-      flowbot_enable: true, flowbot_token: "", flowbot_host: "127.0.0.1",
+      flowbot_enable: false, flowbot_token: "", flowbot_host: "127.0.0.1",
       flowbot_port: "7400", flowbot_tls: false, flowbot_debug: false,
+      web_enable: false,
       web_chat_public: false,
     } as BotSettingsForm,
   });
@@ -2134,6 +2155,8 @@ export function useAdminController() {
   }
 
   const botStatusRows = computed(() => overviewAdapters.value);
+  type AdminBotEvent = { time: number; kind: string; text: string };
+  const botEvents = ref<Record<string, AdminBotEvent[]>>({});
   const oneBotReceiveURL = computed(() => {
     const wsProtocol = window.location.protocol === "https:" ? "wss" : "ws";
     const host =
@@ -2177,32 +2200,37 @@ export function useAdminController() {
     try {
       const res =
         await get<
-          ApiEnvelope<{ settings: Record<string, any>; statuses: any[] }>
+          ApiEnvelope<{
+            settings: Record<string, any>;
+            statuses: any[];
+            events?: Record<string, { time: number; kind: string; text: string }[]>;
+          }>
         >("/api/admin/bots");
       const resource = apiData(res);
       const data = resource?.settings || {};
       if (user.value && Array.isArray(resource?.statuses)) {
         user.value = { ...user.value, adapters: resource.statuses };
       }
+      botEvents.value = resource?.events || {};
       Object.assign(botSettings.form, {
-        clawbot_enable: boolSetting(data["clawbot.enable"], true),
+        clawbot_enable: boolSetting(data["clawbot.enable"]),
         clawbot_token: data["clawbot.token"] || "",
         clawbot_api_base:
           data["clawbot.api_base"] || "https://ilinkai.weixin.qq.com",
         clawbot_debug: boolSetting(data["clawbot.debug"]),
-        qq_enable: boolSetting(data["qq.enable"], true),
+        qq_enable: boolSetting(data["qq.enable"]),
         qq_token: data["qq.token"] || "",
         qq_debug: boolSetting(data["qq.debug"]),
         telegram_token: data["telegram.token"] || "",
-        telegram_enable: boolSetting(data["telegram.enable"], true),
+        telegram_enable: boolSetting(data["telegram.enable"]),
         telegram_api_base:
           data["telegram.api_base"] || "https://api.telegram.org",
         telegram_debug: boolSetting(data["telegram.debug"]),
-        dingtalk_enable: boolSetting(data["dingtalk.enable"], true),
+        dingtalk_enable: boolSetting(data["dingtalk.enable"]),
         dingtalk_client_id: data["dingtalk.client_id"] || "",
         dingtalk_client_secret: data["dingtalk.client_secret"] || "",
         dingtalk_debug: boolSetting(data["dingtalk.debug"]),
-        qqguild_enable: boolSetting(data["qqguild.enable"], true),
+        qqguild_enable: boolSetting(data["qqguild.enable"]),
         qqguild_mode:
           data["qqguild.mode"] === "websocket" ? "websocket" : "webhook",
         qqguild_app_id: data["qqguild.app_id"] || "",
@@ -2220,12 +2248,13 @@ export function useAdminController() {
               : "off",
         qqguild_join_strategy_groups: data["qqguild.join_strategy_groups"] || "",
         qqguild_join_strategy_whitelist: data["qqguild.join_strategy_whitelist"] || "",
-        pagermaid_enable: boolSetting(data["pagermaid.enable"], true),
+        pagermaid_enable: boolSetting(data["pagermaid.enable"]),
         pagermaid_token: data["pagermaid.token"] || "",
         pagermaid_debug: boolSetting(data["pagermaid.debug"]),
-        flowbot_enable: boolSetting(data["flowbot.enable"], true), flowbot_token: data["flowbot.token"] || "",
+        flowbot_enable: boolSetting(data["flowbot.enable"]), flowbot_token: data["flowbot.token"] || "",
         flowbot_host: data["flowbot.host"] || "127.0.0.1", flowbot_port: data["flowbot.port"] != null ? String(data["flowbot.port"]) : "7400",
         flowbot_tls: boolSetting(data["flowbot.tls"]), flowbot_debug: boolSetting(data["flowbot.debug"]),
+        web_enable: boolSetting(data["web.enable"]),
         web_chat_public: boolSetting(data["sillyGirl.web_chat_public"]),
       });
     } finally {
@@ -2235,6 +2264,43 @@ export function useAdminController() {
 
   async function refreshBots() {
     await loadBots();
+  }
+
+  // 仅刷新连接/启用状态，不回写设置表单——避免轮询覆盖正在编辑的设置弹窗。
+  async function refreshBotStatuses() {
+    try {
+      const res =
+        await get<
+          ApiEnvelope<{
+            settings: Record<string, any>;
+            statuses: any[];
+            events?: Record<string, { time: number; kind: string; text: string }[]>;
+          }>
+        >("/api/admin/bots");
+      const resource = apiData(res);
+      if (user.value && Array.isArray(resource?.statuses)) {
+        user.value = { ...user.value, adapters: resource.statuses };
+      }
+      botEvents.value = resource?.events || {};
+    } catch {
+      // 轮询失败静默跳过，等待下一轮。
+    }
+  }
+
+  let botStatusTimer: number | null = null;
+
+  function startBotStatusPolling() {
+    if (botStatusTimer != null) return;
+    // 适配器连接建立/断开需要数秒，BOT 页打开期间轮询状态让卡片实时跟上。
+    botStatusTimer = window.setInterval(() => {
+      void refreshBotStatuses();
+    }, 5000);
+  }
+
+  function stopBotStatusPolling() {
+    if (botStatusTimer == null) return;
+    window.clearInterval(botStatusTimer);
+    botStatusTimer = null;
   }
 
   function openBotSettings(row: { platform: string; label: string }) {
@@ -2292,10 +2358,12 @@ export function useAdminController() {
         "flowbot.enable": !!v.flowbot_enable, "flowbot.token": v.flowbot_token || "",
         "flowbot.host": v.flowbot_host || "127.0.0.1", "flowbot.port": Number(v.flowbot_port) || 7400,
         "flowbot.tls": !!v.flowbot_tls, "flowbot.debug": !!v.flowbot_debug,
+        "web.enable": !!v.web_enable,
         "sillyGirl.web_chat_public": !!v.web_chat_public,
       });
       message.success("BOT 配置已保存");
       await refreshBots();
+      restartWebChatPoll();
     } finally {
       botSettings.saving = false;
     }
@@ -2315,6 +2383,7 @@ export function useAdminController() {
     if (platform === "qqguild") return "qqguild_enable";
     if (platform === "pagermaid") return "pagermaid_enable";
     if (platform === "flowbot") return "flowbot_enable";
+    if (platform === "web") return "web_enable";
     return "";
   }
 
@@ -2333,9 +2402,21 @@ export function useAdminController() {
     const previous = botSettings.form[key as keyof BotSettingsForm];
     (botSettings.form as Record<string, unknown>)[key] = enabled;
     try {
+      // 后端对值未变化的写入不触发变更通知；若开关已是目标状态但适配器异常停止，
+      // 先反转再写回，强制触发重启。
+      if ((row.enabled !== false) === enabled) {
+        await saveStorage({ [`${row.platform}.enable`]: !enabled });
+      }
       await saveStorage({ [`${row.platform}.enable`]: enabled });
       message.success(`${row.label}${enabled ? "已开启" : "已关闭"}`);
       await refreshBots();
+      // 连接建立/断开在后台异步完成，补刷几次让卡片尽快跟上实际状态。
+      for (const delay of [1500, 4000]) {
+        window.setTimeout(() => {
+          void refreshBotStatuses();
+        }, delay);
+      }
+      restartWebChatPoll();
     } catch (error) {
       (botSettings.form as Record<string, unknown>)[key] = previous;
       message.error(
@@ -2477,6 +2558,10 @@ export function useAdminController() {
       )
         ? data["sillyGirl.user_announcement_format"]
         : "text",
+      smtp_host: data["sillyGirl.smtp_host"] || "",
+      smtp_port: data["sillyGirl.smtp_port"] || "",
+      smtp_password: "",
+      smtp_sender: data["sillyGirl.smtp_sender"] || "",
       debug:
         data["sillyGirl.debug"] === true || data["sillyGirl.debug"] === "true",
       listen_admin:
@@ -2501,6 +2586,9 @@ export function useAdminController() {
       "sillyGirl.user_announcement": v.user_announcement || "",
       "sillyGirl.user_announcement_format":
         v.user_announcement_format || "text",
+      "sillyGirl.smtp_host": v.smtp_host || "",
+      "sillyGirl.smtp_port": v.smtp_port || "",
+      "sillyGirl.smtp_sender": v.smtp_sender || "",
       "sillyGirl.debug": !!v.debug,
       "sillyGirl.listen_admin": !!v.listen_admin,
       "sillyGirl.recall": v.recall || "",
@@ -2509,6 +2597,7 @@ export function useAdminController() {
       "sillyGirl.redis_password": v.redis_password || "",
     };
     if (v.password) updates["sillyGirl.password"] = v.password;
+    if (v.smtp_password) updates["sillyGirl.smtp_password"] = v.smtp_password;
     const res = await post<ApiEnvelope<any>>("/api/admin/settings", {
       values: updates,
       github_proxy: String(v.github_proxy || "").trim(),
@@ -2838,6 +2927,7 @@ export function useAdminController() {
     botEnabled,
     botSettings,
     botSettingsModal,
+    botEvents,
     botStatusRows,
     cancelCurrentBotSettings,
     cancelUninstallPluginModal,
@@ -2949,6 +3039,9 @@ export function useAdminController() {
     realScripts,
     recordOptions,
     refreshBots,
+    refreshBotStatuses,
+    startBotStatusPolling,
+    stopBotStatusPolling,
     removeCarry,
     removeDaidaiPanel,
     removeMaster,

@@ -276,8 +276,10 @@ func TestAdminAPIRoutesRequireAuthentication(t *testing.T) {
 
 func TestUserAPIRoutesRequireAuthentication(t *testing.T) {
 	public := map[string]bool{
-		"POST /api/user/accounts": true,
-		"POST /api/user/sessions": true,
+		"POST /api/user/accounts":        true,
+		"POST /api/user/sessions":        true,
+		"POST /api/user/email-codes":     true,
+		"POST /api/user/password/resets": true,
 	}
 	files, err := goSourceFiles("..")
 	if err != nil {

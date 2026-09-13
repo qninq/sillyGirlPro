@@ -173,6 +173,7 @@ func init() {
 			Username string `json:"username"`
 			Password string `json:"password"`
 			Nickname string `json:"nickname"`
+			Code     string `json:"code"`
 		}{}
 		if err := json.NewDecoder(ctx.Request.Body).Decode(&payload); err != nil {
 			ApiFail(ctx, "请求体不是有效 JSON")
@@ -187,6 +188,13 @@ func init() {
 		if err != nil {
 			ApiUnprocessable(ctx, err.Error())
 			return
+		}
+		// 邮箱验证码：未配置 SMTP 时沿用旧的无验证注册，配置后强制校验。
+		if _, _, _, _, configured := smtpSettings(); configured {
+			if err := verifyUserEmailCode(email, payload.Code, EmailCodePurposeRegister); err != nil {
+				ApiUnprocessable(ctx, err.Error())
+				return
+			}
 		}
 		nickname := strings.TrimSpace(payload.Nickname)
 		if nickname == "" {
@@ -216,6 +224,49 @@ func init() {
 			"expiresIn": userJWTExpireSeconds,
 			"user":      toPublicNormalUser(user),
 		})
+	})
+
+	// 忘记密码：邮箱验证码（password-reset 用途）校验通过后重置密码。
+	GinApi(POST, "/api/user/password/resets", func(ctx *gin.Context) {
+		payload := struct {
+			Email    string `json:"email"`
+			Code     string `json:"code"`
+			Password string `json:"password"`
+		}{}
+		if err := json.NewDecoder(ctx.Request.Body).Decode(&payload); err != nil {
+			ApiFail(ctx, "请求体不是有效 JSON")
+			return
+		}
+		email := strings.ToLower(strings.TrimSpace(payload.Email))
+		if _, err := normalUserQQFromEmail(email); err != nil {
+			ApiUnprocessable(ctx, err.Error())
+			return
+		}
+		user, err := loadNormalUser(strings.SplitN(email, "@", 2)[0])
+		if err != nil || user == nil {
+			ApiNotFound(ctx, "该邮箱未注册")
+			return
+		}
+		if err := verifyUserEmailCode(email, payload.Code, EmailCodePurposePasswordReset); err != nil {
+			ApiUnprocessable(ctx, err.Error())
+			return
+		}
+		if err := validateNormalPassword(payload.Password); err != nil {
+			ApiUnprocessable(ctx, err.Error())
+			return
+		}
+		hash, err := bcrypt.GenerateFromPassword([]byte(payload.Password), adminPasswordHashCost)
+		if err != nil {
+			ApiInternalError(ctx, err.Error())
+			return
+		}
+		user.PasswordHash = string(hash)
+		user.UpdatedAt = time.Now().Unix()
+		if _, _, err := userBucket.Set(normalUserStorageKey(user.Username), utils.JsonMarshal(user)); err != nil {
+			ApiInternalError(ctx, err.Error())
+			return
+		}
+		ApiOK(ctx, nil)
 	})
 
 	GinApi(POST, "/api/user/sessions", func(ctx *gin.Context) {

@@ -332,11 +332,13 @@ func TestEveryProtectedInterfaceRejectsMissingAndMalformedHeaderJWT(t *testing.T
 	t.Cleanup(func() { password = originalPassword })
 	router := newRESTContractRouter(apiRouteSnapshot()...)
 	public := map[string]bool{
-		"GET /api/admin/setup":     true,
-		"POST /api/admin/setup":    true,
-		"POST /api/admin/sessions": true,
-		"POST /api/user/accounts":  true,
-		"POST /api/user/sessions":  true,
+		"GET /api/admin/setup":           true,
+		"POST /api/admin/setup":          true,
+		"POST /api/admin/sessions":       true,
+		"POST /api/user/accounts":        true,
+		"POST /api/user/sessions":        true,
+		"POST /api/user/email-codes":     true,
+		"POST /api/user/password/resets": true,
 	}
 	checkedAdmin, checkedUser := 0, 0
 	for _, route := range apiRouteSnapshot() {

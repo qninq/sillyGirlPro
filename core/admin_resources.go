@@ -17,6 +17,10 @@ var adminSettingsKeys = []string{
 	"sillyGirl.user_announcement_enable",
 	"sillyGirl.user_announcement",
 	"sillyGirl.user_announcement_format",
+	"sillyGirl.smtp_host",
+	"sillyGirl.smtp_port",
+	"sillyGirl.smtp_password",
+	"sillyGirl.smtp_sender",
 	"sillyGirl.debug",
 	"sillyGirl.listen_admin",
 	"sillyGirl.recall",
@@ -32,6 +36,8 @@ var adminBotSettingsKeys = []string{
 	"dingtalk.enable", "dingtalk.client_id", "dingtalk.client_secret", "dingtalk.debug",
 	"qqguild.enable", "qqguild.mode", "qqguild.app_id", "qqguild.app_secret", "qqguild.sandbox", "qqguild.public_bot", "qqguild.markdown", "qqguild.at", "qqguild.debug", "qqguild.group_join_auto_approve", "qqguild.join_strategy_groups", "qqguild.join_strategy_whitelist",
 	"pagermaid.enable", "pagermaid.token", "pagermaid.debug",
+	"flowbot.enable", "flowbot.token", "flowbot.host", "flowbot.port", "flowbot.tls", "flowbot.debug",
+	"web.enable",
 	"sillyGirl.web_chat_public",
 }
 
@@ -50,6 +56,7 @@ func init() {
 		ApiOK(ctx, gin.H{
 			"settings": adminStorageValues(adminBotSettingsKeys),
 			"statuses": overviewAdapterStatuses(),
+			"events":   adapterEventRows(),
 		})
 	})
 	GinApi(GET, "/api/admin/message-rules/:kind", RequireAuth, handleGetMessageRules)
