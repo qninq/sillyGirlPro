@@ -16,7 +16,7 @@ func TestAdminNormalUserLifecycle(t *testing.T) {
 	}
 	defer func() { _ = deleteNormalUser(username) }()
 
-	bindings, err := replaceNormalUserBindings(username, "12345678", "-123456789")
+	bindings, err := replaceNormalUserBindings(username, "12345678", "-123456789", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,10 +58,10 @@ func TestAdminNormalUserLifecycle(t *testing.T) {
 }
 
 func TestNormalizedReplacementBindingsValidation(t *testing.T) {
-	if _, err := normalizedReplacementBindings("abc", ""); err == nil {
+	if _, err := normalizedReplacementBindings("abc", "", ""); err == nil {
 		t.Fatal("invalid QQ should be rejected")
 	}
-	if _, err := normalizedReplacementBindings("123456", "telegram-user"); err == nil {
+	if _, err := normalizedReplacementBindings("123456", "telegram-user", ""); err == nil {
 		t.Fatal("invalid Telegram ID should be rejected")
 	}
 }

@@ -57,6 +57,7 @@ export type AdminUserRow = {
   bindings?: {
     qq?: string;
     telegram?: string;
+    qqguild?: string;
     updated_at?: number;
   };
 };

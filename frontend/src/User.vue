@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from "vue";
+import { computed, onMounted, onUnmounted, reactive, ref } from "vue";
 import Alert from "ant-design-vue/es/alert";
 import AntApp from "ant-design-vue/es/app";
 import Avatar from "ant-design-vue/es/avatar";
@@ -7,8 +7,6 @@ import Button from "ant-design-vue/es/button";
 import Card from "ant-design-vue/es/card";
 import ConfigProvider from "ant-design-vue/es/config-provider";
 import Empty from "ant-design-vue/es/empty";
-import Form from "ant-design-vue/es/form";
-import Input from "ant-design-vue/es/input";
 import Space from "ant-design-vue/es/space";
 import Tag from "ant-design-vue/es/tag";
 import Typography from "ant-design-vue/es/typography";
@@ -16,7 +14,7 @@ import message from "ant-design-vue/es/message";
 import zhCN from "ant-design-vue/es/locale/zh_CN";
 import AppBrand from "./components/common/AppBrand.vue";
 import { qqAvatarUrl } from "./utils";
-import { Link, LogOut } from "lucide-vue-next";
+import { KeyRound, LogOut } from "lucide-vue-next";
 
 type ApiEnvelope<T> = {
   status: boolean;
@@ -43,7 +41,14 @@ type PublicUser = {
 type Bindings = {
   qq?: string;
   telegram?: string;
+  qqguild?: string;
   updated_at?: number;
+};
+
+type BindCodeResult = {
+  code: string;
+  expires_at?: number;
+  ttl_seconds?: number;
 };
 
 type UserAnnouncement = {
@@ -66,10 +71,8 @@ const announcement = reactive<UserAnnouncement>({
   enabled: false,
   content: "",
 });
-const bindForm = reactive({
-  qq: "",
-  telegram: "",
-});
+const bindCode = ref<BindCodeResult | null>(null);
+const bindCodeGenerating = ref(false);
 
 const userInitial = computed(() => {
   const name = user.value?.nickname || user.value?.username || "U";
@@ -294,8 +297,6 @@ function fillProfile(data: UserProfile) {
     announcement,
     data.announcement || { enabled: false, content: "" },
   );
-  bindForm.qq = bindings.qq || "";
-  bindForm.telegram = bindings.telegram || "";
 }
 
 async function loadProfile() {
@@ -312,6 +313,41 @@ async function loadProfile() {
   }
 }
 
+async function generateBindCode() {
+  bindCodeGenerating.value = true;
+  try {
+    const data = await requestJSON<BindCodeResult>("/api/user/bindcodes", {
+      method: "POST",
+    });
+    bindCode.value = data;
+    message.success("绑定码已生成，有效期 5 分钟");
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : "生成失败");
+  } finally {
+    bindCodeGenerating.value = false;
+  }
+}
+
+// 绑定码倒计时：每秒刷新剩余秒数，过期后自动失效（前端隐藏，重新生成即可）。
+const bindCodeNow = ref(Math.floor(Date.now() / 1000));
+const bindCodeRemaining = computed(() => {
+  const expiresAt = Number(bindCode.value?.expires_at || 0);
+  if (!expiresAt) return 0;
+  return Math.max(0, expiresAt - bindCodeNow.value);
+});
+const bindCodeActive = computed(
+  () => !!bindCode.value && bindCodeRemaining.value > 0,
+);
+let bindCodeTimer = 0;
+onMounted(() => {
+  bindCodeTimer = window.setInterval(() => {
+    bindCodeNow.value = Math.floor(Date.now() / 1000);
+  }, 1000);
+});
+onUnmounted(() => {
+  if (bindCodeTimer) window.clearInterval(bindCodeTimer);
+});
+
 async function logout() {
   try {
     await requestJSON<null>("/api/user/sessions/current/deletions", {
@@ -322,29 +358,6 @@ async function logout() {
     localStorage.removeItem(userAuthTokenKey);
     window.location.href = "/";
   }
-}
-
-async function saveBinding(platform: "qq" | "telegram") {
-  const value = platform === "qq" ? bindForm.qq : bindForm.telegram;
-  const data = await requestJSON<Bindings>(`/api/user/bindings/${platform}`, {
-    method: "POST",
-    body: JSON.stringify({ value }),
-  });
-  Object.assign(bindings, data);
-  message.success("绑定已保存");
-}
-
-async function removeBinding(platform: "qq" | "telegram") {
-  const data = await requestJSON<Bindings>(
-    `/api/user/bindings/${platform}/deletions`,
-    {
-      method: "POST",
-    },
-  );
-  Object.assign(bindings, data);
-  if (platform === "qq") bindForm.qq = "";
-  if (platform === "telegram") bindForm.telegram = "";
-  message.success("绑定已解除");
 }
 
 onMounted(() => {
@@ -404,7 +417,7 @@ onMounted(() => {
                       user.nickname || user.username
                     }}</Typography.Title>
                     <Typography.Text class="muted"
-                      >@{{ user.username }}</Typography.Text
+                      >{{ user.username }}</Typography.Text
                     >
                     <Typography.Text
                       v-if="user.email"
@@ -424,66 +437,53 @@ onMounted(() => {
                     <Tag :color="bindings.telegram ? 'green' : 'default'"
                       >TG {{ bindings.telegram || "未绑定" }}</Tag
                     >
+                    <Tag :color="bindings.qqguild ? 'green' : 'default'"
+                      >QQ 频道 {{ bindings.qqguild || "未绑定" }}</Tag
+                    >
                   </Space>
                 </Space>
               </Card>
             </section>
 
-            <Card class="user-panel" :bordered="false">
+            <Card class="user-panel bind-code-panel" :bordered="false">
               <template #title>
-                <Space><Link :size="18" />账号绑定</Space>
+                <Space><KeyRound :size="18" />绑定码</Space>
               </template>
-              <Form layout="vertical">
-                <template v-if="bindings.qq">
-                  <Form.Item label="QQ 号">
-                    <Space class="bound-row">
-                      <Typography.Text class="mono">{{
-                        bindings.qq
-                      }}</Typography.Text>
-                      <Button @click="removeBinding('qq')">解绑</Button>
-                    </Space>
-                  </Form.Item>
-                </template>
-                <template v-else>
-                  <Form.Item label="QQ 号">
-                    <Input
-                      v-model:value="bindForm.qq"
-                      placeholder="例如：860562056"
-                    />
-                  </Form.Item>
-                  <Space class="bind-actions">
-                    <Button type="primary" @click="saveBinding('qq')"
-                      >绑定 QQ</Button
-                    >
-                  </Space>
-                </template>
-
-                <template v-if="bindings.telegram">
-                  <Form.Item label="Telegram ID" class="bind-field">
-                    <Space class="bound-row">
-                      <Typography.Text class="mono">{{
-                        bindings.telegram
-                      }}</Typography.Text>
-                      <Button @click="removeBinding('telegram')"
-                        >解绑</Button
+              <div class="bind-code-body">
+                <div v-if="bindCodeActive" class="bind-code-display">
+                  <div class="bind-code-label">当前绑定码</div>
+                  <Typography.Text class="bind-code-code" copyable>{{
+                    bindCode?.code
+                  }}</Typography.Text>
+                  <div class="bind-code-meta">
+                    {{ Math.floor(bindCodeRemaining / 60) }} 分
+                    {{ bindCodeRemaining % 60 }} 秒后过期 · 一次性使用
+                  </div>
+                </div>
+                <Button
+                  type="primary"
+                  class="bind-code-gen-btn"
+                  :loading="bindCodeGenerating"
+                  @click="generateBindCode"
+                >{{ bindCodeActive ? "重新生成绑定码" : "生成新绑定码" }}</Button>
+                <ol class="bind-code-steps">
+                  <li>点击上方按钮生成 6 位绑定码，5 分钟内有效、只能使用一次。</li>
+                  <li>
+                    在 <strong>Telegram</strong> 或 <strong>QQ 频道</strong>
+                    向机器人发送：
+                    <div class="bind-code-command-row">
+                      <Typography.Text
+                        class="bind-code-command"
+                        copyable
+                        >绑定 {{ bindCodeActive ? bindCode?.code : "123456" }}</Typography.Text
                       >
-                    </Space>
-                  </Form.Item>
-                </template>
-                <template v-else>
-                  <Form.Item label="Telegram ID" class="bind-field">
-                    <Input
-                      v-model:value="bindForm.telegram"
-                      placeholder="例如：123456789"
-                    />
-                  </Form.Item>
-                  <Space class="bind-actions">
-                    <Button type="primary" @click="saveBinding('telegram')"
-                      >绑定 TG</Button
-                    >
-                  </Space>
-                </template>
-              </Form>
+                    </div>
+                  </li>
+                  <li>
+                    发送成功后，该渠道账号会自动绑定到当前账号，绑定码随即作废。
+                  </li>
+                </ol>
+              </div>
             </Card>
           </template>
         </main>
@@ -605,17 +605,72 @@ onMounted(() => {
   font-weight: 700;
 }
 
-.bind-actions {
-  margin-bottom: 14px;
+.bind-code-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
-.bound-row {
-  width: 100%;
-  justify-content: space-between;
+.bind-code-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px;
+  background: #f6f8fb;
+  border: 1px dashed #d0d7e0;
+  border-radius: 8px;
 }
 
-.bind-field {
-  margin-top: 12px;
+.bind-code-label {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.bind-code-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 30px;
+  line-height: 1.2;
+  letter-spacing: 6px;
+  font-weight: 700;
+  color: #1677ff;
+}
+
+.bind-code-meta {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.bind-code-gen-btn {
+  align-self: flex-start;
+}
+
+.bind-code-steps {
+  margin: 0;
+  padding-left: 20px;
+  color: #374151;
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.bind-code-steps li {
+  margin-bottom: 4px;
+}
+
+.bind-code-command-row {
+  margin-top: 8px;
+}
+
+.bind-code-command {
+  display: inline-block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1677ff;
+  background: #e8f1ff;
+  border: 1px solid #b8d4ff;
+  border-radius: 6px;
+  padding: 6px 12px;
 }
 
 .muted {

@@ -108,6 +108,13 @@ function rowInitial(record: any) {
           }}</Typography.Text>
         </template>
       </Table.Column>
+      <Table.Column title="QQ 频道" :width="250">
+        <template #default="{ record }">
+          <Typography.Text class="mono">{{
+            record.bindings?.qqguild || "-"
+          }}</Typography.Text>
+        </template>
+      </Table.Column>
       <Table.Column title="注册时间" data-index="created_at" :width="180">
         <template #default="{ text }">{{ timestamp(text) }}</template>
       </Table.Column>
@@ -229,6 +236,14 @@ function rowInitial(record: any) {
           v-model:value="normalUsers.form.telegram"
           name="normal-user-tgid"
           placeholder="Telegram 用户 ID；留空解除绑定"
+        />
+      </Form.Item>
+      <Form.Item label="绑定 QQ 频道" html-for="normal-user-qqguild">
+        <Input
+          id="normal-user-qqguild"
+          v-model:value="normalUsers.form.qqguild"
+          name="normal-user-qqguild"
+          placeholder="QQ 频道 openid；留空解除绑定"
         />
       </Form.Item>
       <Form.Item label="禁用账号" html-for="normal-user-disabled">

@@ -12,6 +12,7 @@ export function useNormalUsersAdmin() {
     email: string;
     qq: string;
     telegram: string;
+    qqguild: string;
     disabled: boolean;
   };
 
@@ -22,6 +23,7 @@ export function useNormalUsersAdmin() {
     email: "",
     qq: "",
     telegram: "",
+    qqguild: "",
     disabled: false,
   });
 
@@ -46,6 +48,7 @@ export function useNormalUsersAdmin() {
       row.email,
       row.bindings?.qq,
       row.bindings?.telegram,
+      row.bindings?.qqguild,
     ].some((field) => String(field || "").toLowerCase().includes(query));
   }
 
@@ -88,6 +91,7 @@ export function useNormalUsersAdmin() {
           email: row.email || "",
           qq: row.bindings?.qq || "",
           telegram: row.bindings?.telegram || "",
+          qqguild: row.bindings?.qqguild || "",
           disabled: !!row.disabled,
         }
       : emptyNormalUserForm();
@@ -118,6 +122,7 @@ export function useNormalUsersAdmin() {
         email,
         qq: form.qq.trim(),
         telegram: form.telegram.trim(),
+        qqguild: form.qqguild.trim(),
         disabled: !!form.disabled,
       };
       if (normalUsers.editing) {

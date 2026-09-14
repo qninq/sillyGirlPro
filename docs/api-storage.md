@@ -173,9 +173,9 @@ Base URL: `http://host:port/api`
 
 普通用户账号接口（Admin 用户管理）：
 
-- `GET /api/admin/users` 返回全部普通用户行（含 `email`、`bindings`、`disabled`、`storage_key`），后台页面在此基础上做账号 / 昵称 / 邮箱 / QQ / TGID 的前端过滤搜索。
-- `POST /api/admin/users` 创建用户，请求体 `{ "username": "...", "password": "...", "nickname": "...", "email": "...", "qq": "...", "telegram": "...", "disabled": false }`；`email` 非空时仅接受 QQ 邮箱（`QQ号@qq.com`），`qq`/`telegram` 非空时写入对应绑定。
-- `POST /api/admin/users/:username` 更新用户，`password` 留空保留原密码，`email` 留空不修改；`qq`/`telegram` 为替换语义（留空解除绑定）。
+- `GET /api/admin/users` 返回全部普通用户行（含 `email`、`bindings`、`disabled`、`storage_key`），后台页面在此基础上做账号 / 昵称 / 邮箱 / QQ / TGID / QQ 频道 openid 的前端过滤搜索。
+- `POST /api/admin/users` 创建用户，请求体 `{ "username": "...", "password": "...", "nickname": "...", "email": "...", "qq": "...", "telegram": "...", "qqguild": "...", "disabled": false }`；`email` 非空时仅接受 QQ 邮箱（`QQ号@qq.com`），`qq`/`telegram`/`qqguild` 非空时写入对应绑定。
+- `POST /api/admin/users/:username` 更新用户，`password` 留空保留原密码，`email` 留空不修改；`qq`/`telegram`/`qqguild` 为替换语义（留空解除绑定）。
 - `POST /api/admin/users/:username/deletions` 删除用户，同时移除 `users` 桶内 `user:` 与 `bindings:` 两个键。
 
 用户服务（User 资源）说明：
@@ -184,8 +184,8 @@ Base URL: `http://host:port/api`
 - `POST /api/user/email-codes` 请求体 `{ "email": "QQ号@qq.com", "purpose": "register" | "password-reset" }`（`purpose` 缺省为 `register`），向该邮箱发送 6 位验证码（5 分钟有效、验证成功即作废、连续错误 5 次作废）；验证码按用途隔离，注册用途的验证码不能用于重置密码。同 IP 60 秒内只能发送一封（跨用途共享）；`register` 用途要求邮箱未注册，`password-reset` 用途要求邮箱已注册，未配置 SMTP 或格式非法时返回相应错误。
 - `POST /api/user/password/resets` 忘记密码：请求体 `{ "email": "QQ号@qq.com", "code": "6 位验证码", "password": "新密码" }`，`code` 为 `password-reset` 用途的邮箱验证码（需先在基础设置配置邮箱验证服务）；校验通过后重置密码并立即作废验证码。
 - `POST /api/user/sessions` 使用账号（自助注册用户即 QQ 号）与密码登录，连续失败有频率限制。
-- `GET /api/user/profile` 返回当前用户（`user.email` 含注册邮箱）、绑定与用户公告。
-- `POST /api/user/bindings/:platform` 与对应 deletions 仅支持 `qq`、`telegram` 两个平台。
+- `GET /api/user/profile` 返回当前用户（`user.email` 含注册邮箱）、绑定（`qq`、`telegram`、`qqguild`）与用户公告。
+- 用户端渠道绑定统一走**绑定码**：`POST /api/user/bindcodes`（需登录）生成 6 位数字绑定码（crypto/rand 随机、5 分钟有效、一次性；已有未过期码时复用并返回真实剩余有效期，过期残留码生成时顺带清理），随后到 Telegram 或 QQ 频道向机器人发送 `绑定 <绑定码>`，系统把该渠道发送者身份（TG 数字 ID / QQ 频道 openid）绑定到生成码的账号并逐行回复绑定结果。旧的手动指定 ID 绑定/解绑接口 `POST /api/user/bindings/:platform` 与对应 deletions 已停用（返回引导使用绑定码 / 联系管理员的提示），防止把他人身份绑到自己账号。
 
 `POST /api/admin/qqguild-onboard-tasks` 创建 QQ 官方扫码绑定任务（q.qq.com bind 服务），返回 `task_id` 和 `qr_code_url`；`POST /api/admin/qqguild-onboard-tasks/:task_id/polls` 内部轮询绑定结果（最长 50 秒），确认成功后服务端解密凭据并自动保存 `qqguild.app_id`/`qqguild.app_secret` 且启用适配器，返回 `confirmed` 与凭据。
 
@@ -222,6 +222,7 @@ Base URL: `http://host:port/api`
 | `POST` | `/api/user/sessions` |
 | `POST` | `/api/user/sessions/current/deletions` |
 | `GET` | `/api/user/profile` |
+| `POST` | `/api/user/bindcodes` |
 | `POST` | `/api/user/bindings/:platform` |
 | `POST` | `/api/user/bindings/:platform/deletions` |
 
@@ -309,7 +310,8 @@ Bucket 对外返回原始类型，底层字符串使用前缀保存类型：
 |---|---|---|---|
 | `sillyGirl` | 设置名 | 标量 / JSON | 系统设置（存储后端、公告、管理员账号等） |
 | `users` | `user:<账号>` | JSON | 普通用户账号：`id`、`username`、`nickname`、`email`、`password_hash`（bcrypt）、`created_at`、`updated_at`、`disabled` |
-| `users` | `bindings:<账号>` | JSON | 用户绑定：`qq`、`telegram`、`updated_at`；自助注册用户注册时自动写入 `qq` |
+| `users` | `bindings:<账号>` | JSON | 用户绑定：`qq`、`telegram`、`qqguild`、`updated_at`；自助注册用户注册时自动写入 `qq` |
+| `bindCodes` | 6 位绑定码 | JSON | 渠道绑定码：`code`、`username`、`created_at`、`expires_at`（5 分钟有效、一次性，过期在下次生成时清理） |
 | `tasks` | 任务 ID | JSON | 定时任务 |
 | `plugins` | 插件 ID | JSON | 已安装插件 |
 | `plugin_config_schemas` | 插件 UUID | JSON | 插件配置表单定义 |

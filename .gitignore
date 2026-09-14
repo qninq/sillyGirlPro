@@ -1,6 +1,7 @@
 test
 sillyGirl
 .vscode
+.zcode/
 dev.go
 .DS_Store
 jd_wskey

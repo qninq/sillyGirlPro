@@ -61,6 +61,7 @@ type publicNormalUser struct {
 type normalUserBindings struct {
 	QQ        string `json:"qq"`
 	Telegram  string `json:"telegram"`
+	Qqguild   string `json:"qqguild"`
 	UpdatedAt int64  `json:"updated_at"`
 }
 
@@ -80,6 +81,7 @@ type adminNormalUserPayload struct {
 	Disabled *bool  `json:"disabled"`
 	QQ       string `json:"qq"`
 	Telegram string `json:"telegram"`
+	Qqguild  string `json:"qqguild"`
 }
 
 type userJWTClaims struct {
@@ -117,7 +119,7 @@ func init() {
 			}
 			return
 		}
-		bindings, err := replaceNormalUserBindings(user.Username, payload.QQ, payload.Telegram)
+		bindings, err := replaceNormalUserBindings(user.Username, payload.QQ, payload.Telegram, payload.Qqguild)
 		if err != nil {
 			_ = deleteNormalUser(user.Username)
 			ApiUnprocessable(ctx, err.Error())
@@ -209,7 +211,7 @@ func init() {
 			}
 			return
 		}
-		if _, err := replaceNormalUserBindings(user.Username, qq, ""); err != nil {
+		if _, err := replaceNormalUserBindings(user.Username, qq, "", ""); err != nil {
 			_ = deleteNormalUser(user.Username)
 			ApiUnprocessable(ctx, err.Error())
 			return
@@ -322,49 +324,33 @@ func init() {
 		})
 	})
 
+	// 用户端渠道绑定统一走绑定码：手动指定任意 ID 绑定/解绑的接口已停用，
+	// 防止登录用户把他人的 TG / QQ 频道身份绑到自己账号上。
 	GinApi(POST, "/api/user/bindings/:platform", RequireUserAuth, func(ctx *gin.Context) {
-		user := currentNormalUser(ctx)
-		if user == nil {
-			ApiError(ctx, http.StatusUnauthorized, "请先登录")
-			return
-		}
-		payload := struct {
-			Value string `json:"value"`
-		}{}
-		if err := json.NewDecoder(ctx.Request.Body).Decode(&payload); err != nil {
-			ApiFail(ctx, "请求体不是有效 JSON")
-			return
-		}
-		platform := ctx.Param("platform")
-		if !isPublicUserBindingPlatform(platform) {
-			ApiUnprocessable(ctx, "普通用户只能绑定 QQ 或 Telegram")
-			return
-		}
-		bindings, err := updateNormalUserBinding(user.Username, platform, payload.Value)
-		if err != nil {
-			ApiUnprocessable(ctx, err.Error())
-			return
-		}
-		ApiOK(ctx, bindings)
+		ApiUnprocessable(ctx, "绑定请使用绑定码：在用户中心生成绑定码后，到 Telegram 或 QQ 频道向机器人发送「绑定 <绑定码>」")
 	})
 
 	GinApi(POST, "/api/user/bindings/:platform/deletions", RequireUserAuth, func(ctx *gin.Context) {
+		ApiUnprocessable(ctx, "暂不支持自助解绑，如需解绑请联系管理员")
+	})
+
+	GinApi(POST, "/api/user/bindcodes", RequireUserAuth, func(ctx *gin.Context) {
 		user := currentNormalUser(ctx)
 		if user == nil {
 			ApiError(ctx, http.StatusUnauthorized, "请先登录")
 			return
 		}
-		platform := ctx.Param("platform")
-		if !isPublicUserBindingPlatform(platform) {
-			ApiUnprocessable(ctx, "普通用户只能解绑 QQ 或 Telegram")
-			return
-		}
-		bindings, err := updateNormalUserBinding(user.Username, platform, "")
+		code, expiresAt, err := generateBindCode(user.Username)
 		if err != nil {
 			ApiUnprocessable(ctx, err.Error())
 			return
 		}
-		ApiOK(ctx, bindings)
+		ApiOK(ctx, gin.H{
+			"code":        code,
+			"expires_at":  expiresAt,
+			"valid_until": expiresAt,
+			"ttl_seconds": bindCodeLifetime,
+		})
 	})
 
 	GinApi(POST, "/api/user/sessions/current/deletions", RequireUserAuth, func(ctx *gin.Context) {
@@ -422,7 +408,7 @@ func updateNormalUserByAdmin(payload adminNormalUserPayload) (*normalUser, norma
 	if err != nil {
 		return nil, normalUserBindings{}, err
 	}
-	bindings, err := normalizedReplacementBindings(payload.QQ, payload.Telegram)
+	bindings, err := normalizedReplacementBindings(payload.QQ, payload.Telegram, payload.Qqguild)
 	if err != nil {
 		return nil, normalUserBindings{}, err
 	}
@@ -466,11 +452,11 @@ func updateNormalUserByAdmin(payload adminNormalUserPayload) (*normalUser, norma
 	return user, bindings, nil
 }
 
-func replaceNormalUserBindings(username, qq, telegram string) (normalUserBindings, error) {
+func replaceNormalUserBindings(username, qq, telegram, qqguild string) (normalUserBindings, error) {
 	if _, err := loadNormalUser(username); err != nil {
 		return normalUserBindings{}, err
 	}
-	bindings, err := normalizedReplacementBindings(qq, telegram)
+	bindings, err := normalizedReplacementBindings(qq, telegram, qqguild)
 	if err != nil {
 		return normalUserBindings{}, err
 	}
@@ -481,16 +467,20 @@ func replaceNormalUserBindings(username, qq, telegram string) (normalUserBinding
 	return bindings, nil
 }
 
-func normalizedReplacementBindings(qq, telegram string) (normalUserBindings, error) {
+func normalizedReplacementBindings(qq, telegram, qqguild string) (normalUserBindings, error) {
 	bindings := normalUserBindings{
 		QQ:       strings.TrimSpace(qq),
 		Telegram: strings.TrimSpace(telegram),
+		Qqguild:  strings.TrimSpace(qqguild),
 	}
 	if bindings.QQ != "" && !userQQBindingPattern.MatchString(bindings.QQ) {
 		return normalUserBindings{}, errors.New("QQ 号格式不正确")
 	}
 	if bindings.Telegram != "" && !userTGBindingPattern.MatchString(bindings.Telegram) {
 		return normalUserBindings{}, errors.New("Telegram ID 格式不正确")
+	}
+	if len(bindings.Qqguild) > 128 {
+		return normalUserBindings{}, errors.New("QQ 频道 openid 过长")
 	}
 	return normalizeNormalUserBindings(bindings), nil
 }
@@ -708,7 +698,10 @@ func updateNormalUserBinding(username string, platform string, value string) (no
 	bindings := loadNormalUserBindings(username)
 	switch platform {
 	case "qq":
-		if value != "" && !userQQBindingPattern.MatchString(value) {
+		if value == "" {
+			return bindings, errors.New("QQ 号绑定后不可解绑")
+		}
+		if !userQQBindingPattern.MatchString(value) {
 			return bindings, errors.New("QQ 号格式不正确")
 		}
 		bindings.QQ = value
@@ -717,6 +710,14 @@ func updateNormalUserBinding(username string, platform string, value string) (no
 			return bindings, errors.New("Telegram ID 格式不正确")
 		}
 		bindings.Telegram = value
+	case "qqguild", "gu", "guid":
+		if value == "" {
+			return bindings, errors.New("QQ 频道绑定后不可解绑")
+		}
+		if len(value) > 128 {
+			return bindings, errors.New("QQ 频道 openid 过长")
+		}
+		bindings.Qqguild = value
 	default:
 		return bindings, errors.New("不支持的绑定类型")
 	}
@@ -728,18 +729,10 @@ func updateNormalUserBinding(username string, platform string, value string) (no
 	return bindings, nil
 }
 
-func isPublicUserBindingPlatform(platform string) bool {
-	switch strings.ToLower(strings.TrimSpace(platform)) {
-	case "qq", "telegram", "tg", "tgid":
-		return true
-	default:
-		return false
-	}
-}
-
 func normalizeNormalUserBindings(bindings normalUserBindings) normalUserBindings {
 	bindings.QQ = strings.TrimSpace(bindings.QQ)
 	bindings.Telegram = strings.TrimSpace(bindings.Telegram)
+	bindings.Qqguild = strings.TrimSpace(bindings.Qqguild)
 	return bindings
 }
 
